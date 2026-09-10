@@ -56,12 +56,13 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://oprec.himatris.com/api/v1}
     container_name: himatris-oprec-frontend
     environment:
       NODE_ENV: production
       HOSTNAME: "0.0.0.0"
       PORT: "3000"
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://oprec.himatris.com/api/v1}
     expose:
       - "3000"
     depends_on:
