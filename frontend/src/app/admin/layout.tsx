@@ -58,7 +58,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const sidebar = (onNavigate?: () => void) => (
     <>
       <div className="mb-6 px-2">
-        <Logo />
+        <Logo textClassName="text-foreground" />
       </div>
       <nav className="flex flex-1 flex-col gap-1">
         {NAV_ITEMS.map((item) => (
@@ -91,7 +91,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="flex min-h-svh">
       {/* Sidebar desktop */}
-      <aside className="hidden w-60 shrink-0 flex-col border-r bg-sidebar p-4 md:flex">
+      <aside className="sticky top-0 hidden h-svh w-60 shrink-0 flex-col overflow-y-auto border-r bg-sidebar p-4 md:flex">
         {sidebar()}
       </aside>
 

@@ -79,6 +79,12 @@ export type ApplicantDetail = {
     mime_type: string;
     size_bytes: number;
   } | null;
+  parental_consent: {
+    id: string;
+    original_name: string;
+    mime_type: string;
+    size_bytes: number;
+  } | null;
   selection_status: SelectionStatus;
   accepted_division?: Ref | null;
   created_at: string;

@@ -54,6 +54,8 @@ func (h *ExportHandler) ExportApplicants(c *gin.Context) {
 			JOIN applicants a2 ON a2.id = f.applicant_id WHERE a2.id = a.id AND f.file_type = 'POSTER'), ''),
 		COALESCE((SELECT string_agg(` + baseParam + ` || '/storage/' || f.path, ', ') FROM files f
 			JOIN applicants a2 ON a2.id = f.applicant_id WHERE a2.id = a.id AND f.file_type = 'PORTFOLIO'), ''),
+		COALESCE((SELECT string_agg(` + baseParam + ` || '/storage/' || f.path, ', ') FROM files f
+			JOIN applicants a2 ON a2.id = f.applicant_id WHERE a2.id = a.id AND f.file_type = 'PARENTAL_CONSENT'), ''),
 		a.selection_status::text, a.created_at
 		FROM applicants a
 		JOIN program_studies ps ON ps.id = a.program_study_id
@@ -76,7 +78,7 @@ func (h *ExportHandler) ExportApplicants(c *gin.Context) {
 	defer rows.Close()
 
 	type row struct {
-		name, nim, class, birth, prodi, div1, div2, cv, poster, portfolio, status string
+		name, nim, class, birth, prodi, div1, div2, cv, poster, portfolio, parentalConsent, status string
 		createdAt time.Time
 	}
 	var data []row
@@ -84,7 +86,7 @@ func (h *ExportHandler) ExportApplicants(c *gin.Context) {
 	for rows.Next() {
 		var r row
 		if err := rows.Scan(&r.name, &r.nim, &r.class, &r.birth, &r.prodi, &r.div1, &r.div2,
-			&r.cv, &r.poster, &r.portfolio, &r.status, &r.createdAt); err != nil {
+			&r.cv, &r.poster, &r.portfolio, &r.parentalConsent, &r.status, &r.createdAt); err != nil {
 			respondError(c, http.StatusInternalServerError, "Terjadi kesalahan.", "INTERNAL_SERVER_ERROR")
 			return
 		}
@@ -109,7 +111,7 @@ func (h *ExportHandler) ExportApplicants(c *gin.Context) {
 
 	// Sheet 1: Data Pendaftar
 	headers := []string{"No", "Nama", "NIM", "Kelas", "Tanggal Lahir", "Program Studi", "Divisi 1", "Divisi 2",
-		"CV", "Poster", "Portofolio", "Status", "Tanggal Pendaftaran"}
+		"CV", "Poster", "Portofolio", "Surat Persetujuan", "Status", "Tanggal Pendaftaran"}
 	sheetNames := []string{"Data Pendaftar", "Statistik", "Rekap Prodi", "Rekap Divisi"}
 	
 	// Rename default sheet to first name
@@ -135,18 +137,18 @@ func (h *ExportHandler) ExportApplicants(c *gin.Context) {
 	for i, r := range data {
 		rowNo := i + 2
 		vals := []any{i + 1, r.name, r.nim, r.class, r.birth, r.prodi, r.div1, r.div2,
-			r.cv, r.poster, r.portfolio, statusLabel[r.status], r.createdAt.Format("02/01/2006 15:04")}
+			r.cv, r.poster, r.portfolio, r.parentalConsent, statusLabel[r.status], r.createdAt.Format("02/01/2006 15:04")}
 		for j, v := range vals {
 			cell, _ := excelize.CoordinatesToCellName(j+1, rowNo)
 			f.SetCellValue(sheet, cell, v)
-			// Kolom CV(I), Poster(J), Portofolio(K): hyperlink bila ada
-			if j >= 8 && j <= 10 && v != "" {
+			// Kolom CV(I), Poster(J), Portofolio(K), Surat Persetujuan(L): hyperlink bila ada
+			if j >= 8 && j <= 11 && v != "" {
 				f.SetCellFormula(sheet, cell, fmt.Sprintf("HYPERLINK(%q, %q)", v, "Lihat File"))
 				f.SetCellStyle(sheet, cell, cell, linkStyle)
 			}
 		}
 	}
-	f.AddTable(sheet, &excelize.Table{Range: fmt.Sprintf("A1:M%d", len(data)+1), Name: "DataPendaftar"})
+	f.AddTable(sheet, &excelize.Table{Range: fmt.Sprintf("A1:N%d", len(data)+1), Name: "DataPendaftar"})
 
 	// Sheet 2: Statistik
 	sheet = "Statistik"
@@ -200,7 +202,7 @@ func (h *ExportHandler) ExportApplicants(c *gin.Context) {
 		style, _ := f.NewStyle(&excelize.Style{
 			Font: &excelize.Font{Bold: true},
 		})
-		endCol := "M"
+		endCol := "N"
 		if s != "Data Pendaftar" {
 			endCol = "B"
 		}
@@ -208,7 +210,7 @@ func (h *ExportHandler) ExportApplicants(c *gin.Context) {
 		f.SetPanes(s, &excelize.Panes{Freeze: true, XSplit: 0, YSplit: 1, TopLeftCell: "A2", ActivePane: "bottomRight"})
 		f.SetColWidth(s, "A", "C", 20)
 		if s == "Data Pendaftar" {
-			f.SetColWidth(s, "D", "M", 25)
+			f.SetColWidth(s, "D", "N", 25)
 		}
 	}
 

@@ -256,6 +256,20 @@ func (h *ApplicantHandler) Get(c *gin.Context) {
 			"mime_type": *portMimeType, "size_bytes": *portSize,
 		}
 	}
+
+	// Fetch parental consent file
+	var pcID, pcOriginalName, pcMimeType *string
+	var pcSize *int64
+	h.DB.QueryRow(c,
+		`SELECT id, original_name, mime_type, size_bytes
+		 FROM files WHERE applicant_id = $1 AND file_type = 'PARENTAL_CONSENT'`,
+		it.ID).Scan(&pcID, &pcOriginalName, &pcMimeType, &pcSize)
+	if pcID != nil {
+		data["parental_consent"] = gin.H{
+			"id": *pcID, "original_name": *pcOriginalName,
+			"mime_type": *pcMimeType, "size_bytes": *pcSize,
+		}
+	}
 	respondSuccess(c, http.StatusOK, "Detail pendaftar berhasil diambil.", data)
 }
 
@@ -382,6 +396,31 @@ func (h *ApplicantHandler) GetPortfolio(c *gin.Context) {
 	absPath := filepath.Join(h.Cfg.StoragePath, relPath)
 	if _, err := os.Stat(absPath); err != nil {
 		respondError(c, http.StatusNotFound, "File portofolio tidak ditemukan.", "FILE_NOT_FOUND")
+		return
+	}
+	c.Header("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, originalName))
+	c.File(absPath)
+}
+
+// GET /admin/applicants/:id/parental-consent
+func (h *ApplicantHandler) GetParentalConsent(c *gin.Context) {
+	var relPath, originalName string
+	err := h.DB.QueryRow(c,
+		`SELECT f.path, f.original_name FROM files f
+		 JOIN applicants a ON a.id = f.applicant_id
+		 WHERE a.id = $1 AND f.file_type = 'PARENTAL_CONSENT'`, c.Param("id"),
+	).Scan(&relPath, &originalName)
+	if errors.Is(err, pgx.ErrNoRows) {
+		respondError(c, http.StatusNotFound, "Surat persetujuan tidak ditemukan.", "NOT_FOUND")
+		return
+	}
+	if err != nil {
+		respondError(c, http.StatusInternalServerError, "Terjadi kesalahan.", "INTERNAL_SERVER_ERROR")
+		return
+	}
+	absPath := filepath.Join(h.Cfg.StoragePath, relPath)
+	if _, err := os.Stat(absPath); err != nil {
+		respondError(c, http.StatusNotFound, "File surat persetujuan tidak ditemukan.", "FILE_NOT_FOUND")
 		return
 	}
 	c.Header("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, originalName))

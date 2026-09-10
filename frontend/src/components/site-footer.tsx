@@ -13,6 +13,17 @@ export function SiteFooter() {
         <p className="text-sm text-zinc-400">
           © {new Date().getFullYear()} HIMATRIS
         </p>
+        <p className="text-sm text-zinc-400">
+          Supported by{" "}
+          <a
+            href="https://teknostudio.id"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-white underline-offset-4 hover:underline"
+          >
+            teknostudio.id
+          </a>
+        </p>
       </div>
     </footer>
   );

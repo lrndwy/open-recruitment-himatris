@@ -28,6 +28,8 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -111,6 +113,10 @@ export default function AdminUsersPage() {
     );
   }
 
+  const totalPages = Math.max(1, Math.ceil(users.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageUsers = users.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
   return (
     <main>
       <div className="flex items-center justify-between">
@@ -133,7 +139,7 @@ export default function AdminUsersPage() {
             </tr>
           </thead>
           <tbody className="divide-y">
-            {users.map((user) => (
+            {pageUsers.map((user) => (
               <tr key={user.id} className="hover:bg-muted/30">
                 <td className="px-4 py-3 text-sm font-medium">{user.username}</td>
                 <td className="px-4 py-3 text-sm text-muted-foreground">{user.email}</td>
@@ -183,6 +189,30 @@ export default function AdminUsersPage() {
           </tbody>
         </table>
       </div>
+
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={safePage <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            Sebelumnya
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Halaman {safePage} dari {totalPages} ({users.length} admin)
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={safePage >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            Selanjutnya
+          </Button>
+        </div>
+      )}
 
       <CreateDialog open={createOpen} onOpenChange={setCreateOpen} onSuccess={load} />
       <EditDialog open={editOpen} onOpenChange={setEditOpen} user={editUser} onSuccess={load} />

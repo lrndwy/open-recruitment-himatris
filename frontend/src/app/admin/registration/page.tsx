@@ -47,6 +47,8 @@ export default function RegistrationPeriodsPage() {
   const [editing, setEditing] = useState<RegistrationPeriod | null>(null);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   const load = useCallback(async () => {
     try {
@@ -133,6 +135,10 @@ export default function RegistrationPeriodsPage() {
   const editStart = editing ? fromISO(editing.start_at) : null;
   const editEnd = editing ? fromISO(editing.end_at) : null;
 
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageItems = items.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -152,7 +158,7 @@ export default function RegistrationPeriodsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {items.map((item) => (
+            {pageItems.map((item) => (
               <TableRow key={item.id}>
                 <TableCell className="font-medium">{item.name}</TableCell>
                 <TableCell>{formatDateTime(item.start_at)}</TableCell>
@@ -180,6 +186,30 @@ export default function RegistrationPeriodsPage() {
           </TableBody>
         </Table>
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={safePage <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            Sebelumnya
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Halaman {safePage} dari {totalPages} ({items.length} periode)
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={safePage >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            Selanjutnya
+          </Button>
+        </div>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>

@@ -41,9 +41,11 @@ export default function ApplicantDetailPage() {
   const [cvUrl, setCvUrl] = useState("");
   const [posterUrl, setPosterUrl] = useState("");
   const [portfolioUrl, setPortfolioUrl] = useState("");
+  const [parentalConsentUrl, setParentalConsentUrl] = useState("");
   const [showCv, setShowCv] = useState(false);
   const [showPoster, setShowPoster] = useState(false);
   const [showPortfolio, setShowPortfolio] = useState(false);
+  const [showParentalConsent, setShowParentalConsent] = useState(false);
 
   const [pendingStatus, setPendingStatus] = useState<SelectionStatus | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -148,6 +150,28 @@ export default function ApplicantDetailPage() {
       if (url) URL.revokeObjectURL(url);
     };
   }, [applicant?.portfolio, id]);
+
+  useEffect(() => {
+    if (!applicant?.parental_consent) return;
+    let url = "";
+    (async () => {
+      try {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api/v1";
+        const token = localStorage.getItem("access_token");
+        const res = await fetch(`${API_URL}/admin/applicants/${id}/parental-consent`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) return;
+        url = URL.createObjectURL(await res.blob());
+        setParentalConsentUrl(url);
+      } catch {
+        // tombol surat persetujuan tetap tampil; gagal fetch dibiarkan diam
+      }
+    })();
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [applicant?.parental_consent, id]);
 
   async function confirmUpdateStatus() {
     if (!pendingStatus) return;
@@ -342,6 +366,41 @@ export default function ApplicantDetailPage() {
               </>
             ) : (
               <p className="text-muted-foreground">Tidak ada portofolio.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Surat Persetujuan Orang Tua</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            {a.parental_consent ? (
+              <>
+                <p>
+                  <span className="text-muted-foreground">File:</span> {a.parental_consent.original_name} (
+                  {formatBytes(a.parental_consent.size_bytes)})
+                </p>
+                <div className="flex gap-2">
+                  {parentalConsentUrl && (
+                    <Button size="sm" onClick={() => setShowParentalConsent(!showParentalConsent)}>
+                      {showParentalConsent ? "Sembunyikan" : "Lihat Surat"}
+                    </Button>
+                  )}
+                  {parentalConsentUrl && (
+                    <Button size="sm" variant="outline" asChild>
+                      <a href={parentalConsentUrl} download={a.parental_consent.original_name}>
+                        Unduh
+                      </a>
+                    </Button>
+                  )}
+                </div>
+                {showParentalConsent && parentalConsentUrl && (
+                  <iframe src={parentalConsentUrl} className="h-96 w-full rounded-md border" title="Surat Persetujuan" />
+                )}
+              </>
+            ) : (
+              <p className="text-muted-foreground">Tidak ada surat persetujuan.</p>
             )}
           </CardContent>
         </Card>

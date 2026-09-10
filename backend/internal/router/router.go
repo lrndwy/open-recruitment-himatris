@@ -67,6 +67,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool) *gin.Engine {
 	admin.GET("/applicants/:id/cv", applicantHandler.GetCV)
 	admin.GET("/applicants/:id/portfolio", applicantHandler.GetPortfolio)
 	admin.GET("/applicants/:id/poster", applicantHandler.GetPoster)
+	admin.GET("/applicants/:id/parental-consent", applicantHandler.GetParentalConsent)
 
 	dashboardHandler := &handler.DashboardHandler{DB: pool}
 	admin.GET("/dashboard", dashboardHandler.GetDashboard)

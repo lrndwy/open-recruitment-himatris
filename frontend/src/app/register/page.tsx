@@ -37,6 +37,8 @@ export default function RegisterPage() {
   const [cvError, setCvError] = useState("");
   const [posterFile, setPosterFile] = useState<File | null>(null);
   const [posterError, setPosterError] = useState("");
+  const [parentalConsentFile, setParentalConsentFile] = useState<File | null>(null);
+  const [parentalConsentError, setParentalConsentError] = useState("");
   const [portfolioFile, setPortfolioFile] = useState<File | null>(null);
   const [portfolioError, setPortfolioError] = useState("");
 
@@ -112,6 +114,28 @@ export default function RegisterPage() {
     setPosterFile(file);
   }
 
+  function handleParentalConsentChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] ?? null;
+    setParentalConsentError("");
+    if (!file) {
+      setParentalConsentFile(null);
+      return;
+    }
+    if (!file.name.toLowerCase().endsWith(".pdf")) {
+      setParentalConsentError("File harus berformat PDF.");
+      e.target.value = "";
+      setParentalConsentFile(null);
+      return;
+    }
+    if (file.size > MAX_CV_SIZE) {
+      setParentalConsentError("Ukuran file maksimal 5 MB.");
+      e.target.value = "";
+      setParentalConsentFile(null);
+      return;
+    }
+    setParentalConsentFile(file);
+  }
+
   function handlePortfolioChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0] ?? null;
     setPortfolioError("");
@@ -137,6 +161,18 @@ export default function RegisterPage() {
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError("");
+    if (!programStudyId) {
+      setError("Program Studi wajib dipilih.");
+      return;
+    }
+    if (!division1Id) {
+      setError("Divisi 1 wajib dipilih.");
+      return;
+    }
+    if (!division2Id) {
+      setError("Divisi 2 wajib dipilih.");
+      return;
+    }
     const form = new FormData(e.currentTarget);
     if (division2Id && division2Id === division1Id) {
       setError("Divisi 2 tidak boleh sama dengan Divisi 1.");
@@ -148,6 +184,10 @@ export default function RegisterPage() {
     }
     if (!posterFile) {
       setError("Poster wajib diunggah.");
+      return;
+    }
+    if (!parentalConsentFile) {
+      setError("Surat persetujuan orang tua wajib diunggah.");
       return;
     }
 
@@ -165,6 +205,8 @@ export default function RegisterPage() {
       payload.append("division_2_id", division2Id);
     }
     payload.append("cv", cvFile);
+    payload.append("poster", posterFile);
+    payload.append("parental_consent", parentalConsentFile);
     try {
       const res = await api.post<SuccessData>("/public/applications", payload);
       setSuccess(res.data ?? null);
@@ -225,8 +267,12 @@ export default function RegisterPage() {
                 <span>CV PDF maksimal 5 MB</span>
               </li>
               <li className="flex items-start gap-3">
+                <FileText className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                <span>Surat persetujuan orang tua (PDF) wajib</span>
+              </li>
+              <li className="flex items-start gap-3">
                 <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
-                <span>Divisi 1 wajib, Divisi 2 opsional</span>
+                <span>Divisi 1 dan Divisi 2 wajib</span>
               </li>
               <li className="flex items-start gap-3">
                 <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
@@ -293,16 +339,12 @@ export default function RegisterPage() {
                   <Input id="birth_date" name="birth_date" type="date" required max={new Date().toISOString().slice(0, 10)} />
                 </div>
                 <div className="space-y-2">
-                  <Label>Divisi 2 (opsional)</Label>
-                  <Select
-                    value={division2Id || "none"}
-                    onValueChange={(v) => setDivision2Id(v === "none" ? "" : v)}
-                  >
+                  <Label>Divisi 2</Label>
+                  <Select value={division2Id} onValueChange={setDivision2Id} required>
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Pilih divisi pilihan kedua" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Tidak ada</SelectItem>
                       {divisions
                         .filter((d) => d.id !== division1Id)
                         .map((d) => (
@@ -389,6 +431,32 @@ export default function RegisterPage() {
                     </p>
                   )}
                   {posterError && <p className="text-sm text-destructive">{posterError}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="parental_consent">Surat Persetujuan Orang Tua (PDF, maks 5 MB)</Label>
+                  <label
+                    htmlFor="parental_consent"
+                    className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-dashed border-input p-6 text-center transition-colors hover:border-foreground/40"
+                  >
+                    <UploadCloud className="size-8 text-muted-foreground" strokeWidth={1.5} />
+                    <span className="text-sm">Klik untuk unggah Surat Persetujuan (PDF, maks 5 MB)</span>
+                  </label>
+                  <input
+                    id="parental_consent"
+                    name="parental_consent"
+                    type="file"
+                    accept="application/pdf"
+                    required
+                    onChange={handleParentalConsentChange}
+                    className="sr-only"
+                  />
+                  {parentalConsentFile && (
+                    <p className="flex items-center gap-2 text-sm text-foreground">
+                      <FileText className="size-4 shrink-0" />
+                      {parentalConsentFile.name} ({(parentalConsentFile.size / 1024).toFixed(0)} KB)
+                    </p>
+                  )}
+                  {parentalConsentError && <p className="text-sm text-destructive">{parentalConsentError}</p>}
                 </div>
 
                 {error && <p className="text-sm text-destructive">{error}</p>}
