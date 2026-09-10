@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+
+# Builds
+frontend/.next/
+frontend/out/
+backend/bin/
+
+# Environment
+.env
+.env.local
+.env.*.local
+backend/.env
+
+# Storage (uploaded files)
+storage/cvs/*
+!storage/cvs/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
