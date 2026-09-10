@@ -57,6 +57,7 @@ export type ApplicantDetail = {
   name: string;
   nim: string;
   class: string;
+  whatsapp: string | null;
   program_study: Ref;
   birth_date: string | null;
   portfolio: {

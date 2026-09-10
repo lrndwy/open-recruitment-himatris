@@ -195,6 +195,7 @@ export default function RegisterPage() {
     payload.append("name", String(form.get("name") ?? ""));
     payload.append("nim", String(form.get("nim") ?? ""));
     payload.append("class", String(form.get("class") ?? ""));
+    payload.append("whatsapp", String(form.get("whatsapp") ?? ""));
     payload.append("birth_date", String(form.get("birth_date") ?? ""));
     payload.append("program_study_id", programStudyId);
     payload.append("division_1_id", division1Id);
@@ -302,6 +303,19 @@ export default function RegisterPage() {
                   <div className="space-y-2">
                     <Label htmlFor="class">Kelas</Label>
                     <Input id="class" name="class" required maxLength={50} placeholder="TI-2A" />
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor="whatsapp">No. WhatsApp</Label>
+                    <Input
+                      id="whatsapp"
+                      name="whatsapp"
+                      type="tel"
+                      required
+                      minLength={8}
+                      maxLength={20}
+                      placeholder="08xxxxxxxxxx"
+                      pattern="[0-9+\- ]{8,20}"
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">

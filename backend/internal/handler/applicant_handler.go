@@ -31,6 +31,7 @@ type applicantItem struct {
 	Name            string  `json:"name"`
 	NIM             string  `json:"nim"`
 	Class           string  `json:"class"`
+	WhatsApp        string  `json:"whatsapp"`
 	BirthDate       any     `json:"birth_date,omitempty"`
 	PortfolioURL    *string `json:"portfolio_url,omitempty"`
 	ProgramStudy    ref     `json:"program_study"`
@@ -168,7 +169,7 @@ func (h *ApplicantHandler) Get(c *gin.Context) {
 	var cvSize *int64
 
 	err := h.DB.QueryRow(c,
-		`SELECT a.id, a.name, a.nim, a.class, a.birth_date,
+		`SELECT a.id, a.name, a.nim, a.class, COALESCE(a.whatsapp, ''), a.birth_date,
 		ps.id, ps.name,
 		d1.id, d1.name,
 		d2.id, d2.name,
@@ -180,7 +181,7 @@ func (h *ApplicantHandler) Get(c *gin.Context) {
 		LEFT JOIN divisions d2 ON d2.id = a.division_2_id
 		LEFT JOIN divisions dacc ON dacc.id = a.accepted_division_id
 		WHERE a.id = $1`, c.Param("id"),
-	).Scan(&it.ID, &it.Name, &it.NIM, &it.Class, &it.BirthDate,
+	).Scan(&it.ID, &it.Name, &it.NIM, &it.Class, &it.WhatsApp, &it.BirthDate,
 		&it.ProgramStudy.ID, &it.ProgramStudy.Name,
 		&it.Division1.ID, &it.Division1.Name,
 		&div2ID, &div2Name,
@@ -215,6 +216,7 @@ func (h *ApplicantHandler) Get(c *gin.Context) {
 
 	data := gin.H{
 		"id": it.ID, "name": it.Name, "nim": it.NIM, "class": it.Class,
+		"whatsapp":   it.WhatsApp,
 		"birth_date": it.BirthDate,
 		"program_study": it.ProgramStudy,
 		"division_1": gin.H{

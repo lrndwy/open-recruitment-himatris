@@ -252,6 +252,10 @@ export default function ApplicantDetailPage() {
                 : "-"}
             </p>
             <p>
+              <span className="text-muted-foreground">No. WhatsApp:</span>{" "}
+              {a.whatsapp || "-"}
+            </p>
+            <p>
               <span className="text-muted-foreground">Program Studi:</span> {a.program_study.name}
             </p>
             <p>

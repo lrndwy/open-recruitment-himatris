@@ -139,14 +139,28 @@ func (h *PublicHandler) CreateApplication(c *gin.Context) {
 	name := strings.TrimSpace(c.PostForm("name"))
 	nim := strings.TrimSpace(c.PostForm("nim"))
 	class := strings.TrimSpace(c.PostForm("class"))
+	whatsapp := strings.TrimSpace(c.PostForm("whatsapp"))
 	birthDate := strings.TrimSpace(c.PostForm("birth_date"))
 	programStudyID := strings.TrimSpace(c.PostForm("program_study_id"))
 	division1ID := strings.TrimSpace(c.PostForm("division_1_id"))
 	division2ID := strings.TrimSpace(c.PostForm("division_2_id"))
 
 	// Validate required fields
-	if name == "" || nim == "" || class == "" || birthDate == "" || programStudyID == "" || division1ID == "" || division2ID == "" {
+	if name == "" || nim == "" || class == "" || whatsapp == "" || birthDate == "" || programStudyID == "" || division1ID == "" || division2ID == "" {
 		respondError(c, http.StatusUnprocessableEntity, "Data pendaftaran tidak lengkap.", "VALIDATION_ERROR")
+		return
+	}
+
+	// Validate WhatsApp number (8-20 chars, hanya digit/+/spasi/dash)
+	validWA := len(whatsapp) >= 8 && len(whatsapp) <= 20
+	for _, r := range whatsapp {
+		if !(r >= '0' && r <= '9' || r == '+' || r == '-' || r == ' ') {
+			validWA = false
+			break
+		}
+	}
+	if !validWA {
+		respondError(c, http.StatusUnprocessableEntity, "Nomor WhatsApp tidak valid.", "VALIDATION_ERROR")
 		return
 	}
 
@@ -421,11 +435,11 @@ func (h *PublicHandler) CreateApplication(c *gin.Context) {
 	createdAt := time.Now()
 	_, err = tx.Exec(c,
 		`INSERT INTO applicants
-			(id, registration_period_id, nim, name, class, birth_date, program_study_id,
+			(id, registration_period_id, nim, name, class, whatsapp, birth_date, program_study_id,
 			 division_1_id, division_2_id,
 			 selection_status, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'PENDING', $10, $10)`,
-		applicantID, registrationPeriodID, nim, name, class, birth,
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'PENDING', $11, $11)`,
+		applicantID, registrationPeriodID, nim, name, class, whatsapp, birth,
 		programStudyID, division1ID, division2ID,
 		createdAt)
 	if err != nil {
