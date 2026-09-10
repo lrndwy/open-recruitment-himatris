@@ -25,7 +25,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Open Recruitment HIMATRIS",
   description:
-    "Sistem pendaftaran dan seleksi Open Recruitment HIMATRIS — Himpunan Mahasiswa Teknologi Informasi.",
+    "Sistem pendaftaran dan seleksi Open Recruitment HIMATRIS — Himpunan Mahasiswa Komputer dan Bisnis.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

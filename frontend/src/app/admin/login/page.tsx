@@ -49,7 +49,7 @@ export default function AdminLoginPage() {
             Open Recruitment <span className="italic">HIMATRIS</span>
           </h1>
           <p className="max-w-md text-muted-foreground">
-            Himpunan Mahasiswa Teknologi Informasi — kelola pendaftar, periode, dan
+            Himpunan Mahasiswa Komputer dan Bisnis — kelola pendaftar, periode, dan
             divisi dari satu dasbor.
           </p>
         </div>

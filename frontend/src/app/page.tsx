@@ -90,7 +90,7 @@ export default function LandingPage() {
                 Open Recruitment <span className="block italic text-accent">HIMATRIS</span>
               </h1>
               <p className="max-w-md text-base leading-relaxed text-foreground/60">
-                Bergabunglah dengan Himpunan Mahasiswa Teknologi Informasi.
+                Bergabunglah dengan Himpunan Mahasiswa Komputer dan Bisnis.
                 Kembangkan dirimu bersama kami melalui kegiatan organisasi,
                 kajian, dan kegiatan sosial.
               </p>

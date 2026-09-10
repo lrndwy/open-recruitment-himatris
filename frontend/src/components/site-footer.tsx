@@ -7,7 +7,7 @@ export function SiteFooter() {
         <div className="flex flex-col items-center gap-1.5 sm:items-start">
           <Logo className="scale-90" />
           <p className="text-sm text-zinc-400">
-            Himpunan Mahasiswa Teknologi Informasi.
+            Himpunan Mahasiswa Komputer dan Bisnis.
           </p>
         </div>
         <p className="text-sm text-zinc-400">
