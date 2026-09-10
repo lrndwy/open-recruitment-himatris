@@ -42,19 +42,19 @@ func (h *ExportHandler) ExportApplicants(c *gin.Context) {
 		addFilter("a.selection_status::text", v)
 	}
 
-	// Satu baris per file (CV/POSTER/PORTFOLIO) via LEFT JOIN; agregasi jadi satu sel per jenis
-	// URL file: baseURL + /storage/ + path relatif file (disimpan di kolom path)
+	// Satu baris per file (CV/POSTER/PORTFOLIO/PARENTAL_CONSENT) via subquery; agregasi jadi satu sel per jenis
+	// URL file: baseURL + /api/v1/storage/ + path relatif file (disimpan di kolom path)
 	args = append(args, "")
 	baseParam := fmt.Sprintf("$%d", len(args))
 	query := `SELECT a.name, a.nim, a.class, COALESCE(a.whatsapp, ''), COALESCE(TO_CHAR(a.birth_date, 'DD/MM/YYYY'), ''), ps.name, d1.name,
 		COALESCE(d2.name, ''),
-		COALESCE((SELECT string_agg(` + baseParam + ` || '/storage/' || f.path, ', ') FROM files f
+		COALESCE((SELECT string_agg(` + baseParam + ` || '/api/v1/storage/' || f.path, ', ') FROM files f
 			JOIN applicants a2 ON a2.id = f.applicant_id WHERE a2.id = a.id AND f.file_type = 'CV'), ''),
-		COALESCE((SELECT string_agg(` + baseParam + ` || '/storage/' || f.path, ', ') FROM files f
+		COALESCE((SELECT string_agg(` + baseParam + ` || '/api/v1/storage/' || f.path, ', ') FROM files f
 			JOIN applicants a2 ON a2.id = f.applicant_id WHERE a2.id = a.id AND f.file_type = 'POSTER'), ''),
-		COALESCE((SELECT string_agg(` + baseParam + ` || '/storage/' || f.path, ', ') FROM files f
+		COALESCE((SELECT string_agg(` + baseParam + ` || '/api/v1/storage/' || f.path, ', ') FROM files f
 			JOIN applicants a2 ON a2.id = f.applicant_id WHERE a2.id = a.id AND f.file_type = 'PORTFOLIO'), ''),
-		COALESCE((SELECT string_agg(` + baseParam + ` || '/storage/' || f.path, ', ') FROM files f
+		COALESCE((SELECT string_agg(` + baseParam + ` || '/api/v1/storage/' || f.path, ', ') FROM files f
 			JOIN applicants a2 ON a2.id = f.applicant_id WHERE a2.id = a.id AND f.file_type = 'PARENTAL_CONSENT'), ''),
 		a.selection_status::text, a.created_at
 		FROM applicants a

@@ -297,6 +297,9 @@ export default function ApplicantDetailPage() {
                     </Button>
                   )}
                 </div>
+                {showCv && cvUrl && (
+                  <iframe src={cvUrl} className="h-96 w-full rounded-md border" title="CV" />
+                )}
               </>
             ) : (
               <p className="text-muted-foreground">Tidak ada CV.</p>

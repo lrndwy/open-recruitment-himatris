@@ -20,9 +20,10 @@ func New(cfg *config.Config, pool *pgxpool.Pool) *gin.Engine {
 	}
 	r.Use(cors.New(corsConfig))
 
-	r.Static("/storage", cfg.StoragePath)
-
 	api := r.Group("/api/v1")
+
+	// File uploads served di bawah /api/v1 agar dirutekan ke backend oleh reverse proxy
+	api.Static("/storage", cfg.StoragePath)
 
 	healthHandler := &handler.HealthHandler{DB: pool}
 	api.GET("/health", healthHandler.Health)
