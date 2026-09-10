@@ -6,7 +6,7 @@ COPY . .
 RUN CGO_ENABLED=0 go build -o /server ./cmd/server
 
 FROM alpine:3.21
-RUN apk add --no-cache ca-certificates && adduser -D -u 1000 appuser
+RUN adduser -D -u 1000 appuser && apk add --no-cache ca-certificates || true
 WORKDIR /app
 COPY --from=build /server ./server
 COPY migrations ./migrations
