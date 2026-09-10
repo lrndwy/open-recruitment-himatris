@@ -64,6 +64,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool) *gin.Engine {
 	applicantHandler := &handler.ApplicantHandler{DB: pool, Cfg: cfg}
 	admin.GET("/applicants", applicantHandler.List)
 	admin.GET("/applicants/:id", applicantHandler.Get)
+	admin.DELETE("/applicants/:id", applicantHandler.Delete)
 	admin.PATCH("/applicants/:id/status", applicantHandler.UpdateStatus)
 	admin.GET("/applicants/:id/cv", applicantHandler.GetCV)
 	admin.GET("/applicants/:id/portfolio", applicantHandler.GetPortfolio)

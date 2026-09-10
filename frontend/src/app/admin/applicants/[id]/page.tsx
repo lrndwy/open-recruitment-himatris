@@ -49,6 +49,8 @@ export default function ApplicantDetailPage() {
 
   const [pendingStatus, setPendingStatus] = useState<SelectionStatus | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [divisions, setDivisions] = useState<Division[]>([]);
   const [acceptedDivId, setAcceptedDivId] = useState("");
@@ -192,6 +194,19 @@ export default function ApplicantDetailPage() {
       setError(err instanceof ApiError ? err.message : "Terjadi kesalahan.");
     } finally {
       setIsUpdating(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!applicant) return;
+    setIsDeleting(true);
+    try {
+      await api.delete(`/admin/applicants/${id}`);
+      router.push("/admin/applicants");
+    } catch (err) {
+      setDeleteOpen(false);
+      setError(err instanceof ApiError ? err.message : "Terjadi kesalahan.");
+      setIsDeleting(false);
     }
   }
 
@@ -441,6 +456,13 @@ export default function ApplicantDetailPage() {
           >
             Tolak
           </Button>
+          <Button
+            variant="destructive"
+            onClick={() => setDeleteOpen(true)}
+            disabled={isDeleting}
+          >
+            {isDeleting ? "Menghapus..." : "Hapus Pendaftar"}
+          </Button>
         </div>
       </div>
 
@@ -479,6 +501,27 @@ export default function ApplicantDetailPage() {
               disabled={isUpdating || (pendingStatus === "ACCEPTED" && !acceptedDivId)}
             >
               {isUpdating ? "Menyimpan..." : "Ya, Ubah"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={deleteOpen} onOpenChange={(o) => !o && !isDeleting && setDeleteOpen(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus pendaftar?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Pendaftar &quot;{a.name}&quot; beserta seluruh file (CV, poster, portofolio, surat persetujuan) akan
+              dihapus permanen dan tidak dapat dikembalikan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Menghapus..." : "Ya, Hapus"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -404,6 +404,50 @@ func (h *ApplicantHandler) GetPortfolio(c *gin.Context) {
 	c.File(absPath)
 }
 
+// DELETE /admin/applicants/:id
+func (h *ApplicantHandler) Delete(c *gin.Context) {
+	id := c.Param("id")
+
+	// Kumpulkan path file fisik sebelum baris dihapus (record files ikut terhapus via CASCADE)
+	rows, err := h.DB.Query(c, `SELECT path FROM files WHERE applicant_id = $1`, id)
+	if err != nil {
+		respondError(c, http.StatusInternalServerError, "Terjadi kesalahan.", "INTERNAL_SERVER_ERROR")
+		return
+	}
+	var filePaths []string
+	for rows.Next() {
+		var p string
+		if err := rows.Scan(&p); err != nil {
+			rows.Close()
+			respondError(c, http.StatusInternalServerError, "Terjadi kesalahan.", "INTERNAL_SERVER_ERROR")
+			return
+		}
+		filePaths = append(filePaths, p)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		respondError(c, http.StatusInternalServerError, "Terjadi kesalahan.", "INTERNAL_SERVER_ERROR")
+		return
+	}
+
+	tag, err := h.DB.Exec(c, `DELETE FROM applicants WHERE id = $1`, id)
+	if err != nil {
+		respondError(c, http.StatusInternalServerError, "Terjadi kesalahan.", "INTERNAL_SERVER_ERROR")
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		respondError(c, http.StatusNotFound, "Pendaftar tidak ditemukan.", "NOT_FOUND")
+		return
+	}
+
+	// Hapus file fisik dari storage (best-effort; record DB sudah bersih via cascade)
+	for _, p := range filePaths {
+		_ = os.Remove(filepath.Join(h.Cfg.StoragePath, p))
+	}
+
+	respondSuccess(c, http.StatusOK, "Pendaftar berhasil dihapus.", nil)
+}
+
 // GET /admin/applicants/:id/parental-consent
 func (h *ApplicantHandler) GetParentalConsent(c *gin.Context) {
 	var relPath, originalName string
