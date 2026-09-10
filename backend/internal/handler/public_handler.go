@@ -3,16 +3,12 @@ package handler
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"log"
-	"math/rand"
 	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
