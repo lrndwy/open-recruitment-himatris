@@ -77,6 +77,10 @@ func New(cfg *config.Config, pool *pgxpool.Pool) *gin.Engine {
 	exportHandler := &handler.ExportHandler{DB: pool}
 	admin.GET("/export/applicants", exportHandler.ExportApplicants)
 
+	importHandler := &handler.ImportHandler{DB: pool}
+	admin.GET("/import/applicants/template", importHandler.DownloadTemplate)
+	admin.POST("/import/applicants", importHandler.ImportApplicants)
+
 	adminHandler := &handler.AdminHandler{DB: pool}
 	admin.GET("/users", adminHandler.List)
 	admin.GET("/users/:id", adminHandler.Get)

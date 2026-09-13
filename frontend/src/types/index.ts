@@ -38,6 +38,15 @@ export type Paginated<T> = {
 
 export type Ref = { id: string; name: string };
 
+export type ImportApplicantResult = {
+  total: number;
+  created: number;
+  skipped: number;
+  failed: number;
+  errors: { row: number; nim: string; message: string }[];
+  errors_truncated?: boolean;
+};
+
 export type ApplicantListItem = {
   id: string;
   name: string;

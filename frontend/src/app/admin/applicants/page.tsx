@@ -1,11 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -25,8 +28,10 @@ import { api, ApiError } from "@/lib/api";
 import type {
   ApplicantListItem,
   Division,
+  ImportApplicantResult,
   Paginated,
   ProgramStudy,
+  RegistrationPeriod,
   SelectionStatus,
 } from "@/types";
 
@@ -56,6 +61,13 @@ export default function ApplicantsPage() {
   const [divisions, setDivisions] = useState<Division[]>([]);
   const [programStudies, setProgramStudies] = useState<ProgramStudy[]>([]);
 
+  const [periods, setPeriods] = useState<RegistrationPeriod[]>([]);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importPeriodId, setImportPeriodId] = useState("");
+  const [importResult, setImportResult] = useState<ImportApplicantResult | null>(null);
+
   useEffect(() => {
     api
       .get<Paginated<Division>>("/admin/divisions?limit=100")
@@ -64,6 +76,16 @@ export default function ApplicantsPage() {
     api
       .get<Paginated<ProgramStudy>>("/admin/program-studies?limit=100")
       .then((r) => setProgramStudies(r.data?.items ?? []))
+      .catch(() => {});
+    api
+      .get<RegistrationPeriod[]>("/admin/registration-periods")
+      .then((r) => setPeriods(r.data ?? []))
+      .catch(() => {});
+    api
+      .get<RegistrationPeriod | null>("/admin/registration-periods/active")
+      .then((r) => {
+        if (r.data?.id) setImportPeriodId(r.data.id);
+      })
       .catch(() => {});
   }, []);
 
@@ -129,13 +151,65 @@ export default function ApplicantsPage() {
     }
   }
 
+  async function handleDownloadTemplate() {
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/import/applicants/template`,
+        { headers: { Authorization: `Bearer ${localStorage.getItem("access_token")}` } },
+      );
+      if (!res.ok) throw new Error();
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download =
+        res.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] ??
+        "Format_Import_Pendaftar.xlsx";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Gagal mengunduh template.");
+    }
+  }
+
+  async function handleImport(e: FormEvent) {
+    e.preventDefault();
+    if (!importFile || !importPeriodId) return;
+    setImporting(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", importFile);
+      fd.append("registration_period_id", importPeriodId);
+      const res = await api.post<ImportApplicantResult>("/admin/import/applicants", fd);
+      setImportResult(res.data ?? null);
+      toast.success(`${res.data?.created ?? 0} pendaftar berhasil diimport.`);
+      if (res.data?.created) load();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Gagal mengimport data.");
+    } finally {
+      setImporting(false);
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Pendaftar</h1>
-        <Button variant="outline" onClick={handleExport}>
-          Export Excel
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setImportResult(null);
+              setImportFile(null);
+              setImportOpen(true);
+            }}
+          >
+            Import Excel
+          </Button>
+          <Button variant="outline" onClick={handleExport}>
+            Export Excel
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -278,6 +352,85 @@ export default function ApplicantsPage() {
           </div>
         </div>
       )}
+
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import Data Pendaftar</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleImport} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Periode Pendaftaran</Label>
+              <Select value={importPeriodId} onValueChange={setImportPeriodId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih periode" />
+                </SelectTrigger>
+                <SelectContent>
+                  {periods.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button type="button" variant="outline" onClick={handleDownloadTemplate}>
+              Download Template
+            </Button>
+
+            <div className="space-y-2">
+              <Label htmlFor="import-file">File Excel (.xlsx)</Label>
+              <Input
+                id="import-file"
+                type="file"
+                accept=".xlsx"
+                onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
+              />
+            </div>
+
+            <Button type="submit" disabled={importing || !importFile || !importPeriodId}>
+              {importing ? "Mengimport..." : "Import"}
+            </Button>
+
+            {importResult && (
+              <div className="space-y-3">
+                <p className="text-sm">
+                  {importResult.created} berhasil, {importResult.skipped} dilewati,{" "}
+                  {importResult.failed} gagal dari {importResult.total} baris.
+                </p>
+                {importResult.errors.length > 0 && (
+                  <div className="max-h-60 overflow-auto rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Baris</TableHead>
+                          <TableHead>NIM</TableHead>
+                          <TableHead>Keterangan</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {importResult.errors.map((err, i) => (
+                          <TableRow key={i}>
+                            <TableCell>{err.row}</TableCell>
+                            <TableCell>{err.nim}</TableCell>
+                            <TableCell>{err.message}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+                {importResult.errors_truncated && (
+                  <p className="text-sm text-muted-foreground">
+                    Daftar error dipotong pada {importResult.errors.length} baris pertama.
+                  </p>
+                )}
+              </div>
+            )}
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
