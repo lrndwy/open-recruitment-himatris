@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, Link2, Share2 } from "lucide-react";
+import { Check, Download, Link2, Share2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 
@@ -12,7 +12,14 @@ const PLATFORMS = [
   { label: "Telegram", buildUrl: (text: string, url: string) => `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}` },
 ];
 
-export function ShareResult({ division }: { division?: string | null }) {
+const SHARE_TITLE = "Open Recruitment HIMATRIS";
+
+type Props = {
+  nim?: string | null;
+  division?: string | null;
+};
+
+export function ShareResult({ nim, division }: Props) {
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const timer = useRef<number | undefined>(undefined);
@@ -22,22 +29,43 @@ export function ShareResult({ division }: { division?: string | null }) {
   /*
     Komponen ini baru dirender setelah user mengecek hasil (tidak pernah saat
     SSR), jadi `window`/`navigator` aman diakses di sini.
-    Tautan yang dibagikan sengaja halaman depan plus status/divisi (tanpa NIM
-    atau nama), supaya kartu preview di media sosial bisa menyesuaikan.
+    Tautan yang dibagikan memakai NIM — bukan status/divisi — supaya kartu
+    preview diambil dari data pendaftar yang sebenarnya dan tidak bisa diubah
+    dari URL. Gambarnya sendiri dibuat server pada `/og`.
   */
-  const shareParams = new URLSearchParams({ status: "ACCEPTED" });
-  if (division) shareParams.set("divisi", division);
-  const url = `${window.location.origin}/?${shareParams.toString()}`;
+  const origin = window.location.origin;
+  const url = nim ? `${origin}/?nim=${encodeURIComponent(nim)}` : origin;
   const text = division
     ? `Aku diterima di divisi ${division} pada Open Recruitment HIMATRIS!`
     : "Aku diterima pada Open Recruitment HIMATRIS!";
+
+  const imageParams = new URLSearchParams({ status: "ACCEPTED" });
+  if (division) imageParams.set("divisi", division);
+  const imageUrl = `${origin}/og?${imageParams.toString()}`;
+  const imageName = `hasil-seleksi-${nim ?? "himatris"}.png`;
+
   const canNativeShare = typeof navigator.share === "function";
 
+  /*
+    Gambar diunduh dulu supaya bisa dilampirkan lewat `files`: WhatsApp dan
+    aplikasi lain menerima gambarnya langsung, bukan cuma tautan. Browser yang
+    belum bisa berbagi file tetap dapat versi teks + tautan.
+  */
   async function handleNativeShare() {
     try {
-      await navigator.share({ title: "Open Recruitment HIMATRIS", text, url });
+      const res = await fetch(imageUrl);
+      const blob = res.ok ? await res.blob() : null;
+      const file = blob
+        ? new File([blob], imageName, { type: blob.type || "image/png" })
+        : null;
+
+      if (file && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: SHARE_TITLE, text: `${text} ${url}` });
+      } else {
+        await navigator.share({ title: SHARE_TITLE, text, url });
+      }
     } catch {
-      // User menutup share sheet, tidak perlu aksi apa pun.
+      // User menutup share sheet atau berbagi gagal, tidak perlu aksi apa pun.
     }
   }
 
@@ -70,6 +98,13 @@ export function ShareResult({ division }: { division?: string | null }) {
             Bagikan
           </Button>
         )}
+
+        <Button variant="outline" className={buttonClass} asChild>
+          <a href={imageUrl} download={imageName}>
+            <Download className="size-4" aria-hidden />
+            Unduh gambar
+          </a>
+        </Button>
 
         {PLATFORMS.map((platform) => (
           <Button key={platform.label} asChild variant="outline" className={buttonClass}>
