@@ -1,7 +1,27 @@
 # Override agar docker-compose.prod.yml bisa dijalankan di lokal (Dokploy TIDAK dipakai).
-# Pakai: docker compose -f docker-compose.prod.yml -f docker-compose.prod.local.yml up -d --build
+#
+# Compose produksi memakai network external `dokploy-network` (punya Traefik di server).
+# Di lokal, buat network itu sekali saja:
+#
+#   docker network create dokploy-network
+#
+# Lalu jalankan:
+#
+#   DATABASE_PASSWORD=postgres JWT_SECRET=local-dev-secret-please-change-32chars \
+#   NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1 \
+#   docker compose -f docker-compose.prod.yml -f docker-compose.prod.local.yml up -d --build
+#
+# container_name sengaja hanya diisi di sini (mode lokal). Dokploy melarangnya,
+# karena bikin masalah log, metrics, dan fitur lain.
 services:
+  postgres:
+    container_name: himatris-oprec-postgres
+
+  redis:
+    container_name: himatris-oprec-redis
+
   backend:
+    container_name: himatris-oprec-backend
     ports:
       - "8080:8080"
     environment:
@@ -9,6 +29,7 @@ services:
       BASE_URL: ${BASE_URL:-http://localhost:8080}
 
   frontend:
+    container_name: himatris-oprec-frontend
     build:
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080/api/v1}

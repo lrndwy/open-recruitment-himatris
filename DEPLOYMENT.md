@@ -42,11 +42,29 @@ openssl rand -base64 24
 ### 3. Deploy
 
 Di Dokploy:
-- Pilih `docker-compose.prod.yml` sebagai deployment file
-- Configure domain routing:
-  - Backend: `your-domain.com/api` → port 8080
-  - Frontend: `your-domain.com` → port 3000
+- Pilih `docker-compose.prod.yml` sebagai deployment file (Compose Path)
+- Tambah domain di tab **Domains** (satu entri per service, isi persis seperti ini):
+
+| Host | Path | Service Name | Port | HTTPS |
+|---|---|---|---|---|
+| `oprec.himatris.com` | _(kosong)_ | `frontend` | `3000` | aktif |
+| `oprec.himatris.com` | `/api` | `backend` | `8080` | aktif |
+
 - Deploy
+
+Dua hal yang wajib dan sudah diatur di `docker-compose.prod.yml`:
+
+1. Service `frontend` dan `backend` harus tersambung ke network `dokploy-network`
+   (network milik Traefik). Compose ini sudah menyambungkannya; kalau network itu
+   tidak ada di server, domain akan selalu dibalas **404**.
+2. Jangan pakai `container_name` di compose yang dijalankan Dokploy. Dokploy
+   melarangnya karena mengganggu log, metrics, dan fitur lain (compose produksi
+   sudah bersih; `container_name` hanya ada di `docker-compose.prod.local.yml`
+   untuk pemakaian di lokal).
+
+Setiap kali domain ditambah/diubah di Dokploy, **deploy ulang** service-nya:
+Dokploy menyuntikkan label Traefik pada saat deploy, jadi perubahan domain tidak
+berlaku sebelum redeploy.
 
 ### 4. Verify
 
@@ -149,6 +167,32 @@ Health endpoints:
 - [ ] Monitor disk space untuk CV uploads via Dokploy dashboard
 
 ## Troubleshooting
+
+### Domain balas `404 page not found` dan tidak ada log di container
+
+Ini bukan masalah aplikasi: log FE kosong berarti request tidak pernah sampai ke
+container, dan `404 page not found` adalah balasan Traefik ketika tidak ada
+router yang cocok. Penyebab yang harus dicek (urut):
+
+1. **Service tidak tersambung ke `dokploy-network`.** Traefik hanya bisa
+   menjangkau container di network itu. Cek:
+   ```bash
+   docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}' <container-frontend>
+   # harus memuat dokploy-network
+   docker network inspect dokploy-network --format '{{range .Containers}}{{.Name}} {{end}}'
+   ```
+2. **Domain belum di-redeploy.** Dokploy memakai label Traefik untuk compose, dan
+   label itu baru dipasang saat deploy. Tambah domain, lalu Deploy ulang.
+3. **Service Name / Port salah di tab Domains.** Harus cocok dengan nama service
+   di compose (`frontend` + `3000`, `backend` + `8080`) dan path `/api` untuk backend.
+4. **`container_name` masih dipakai.** Buang dari compose yang dijalankan Dokploy.
+5. **A record domain belum mengarah ke IP server** sebelum domain ditambahkan,
+   supaya sertifikat Let's Encrypt bisa terbit.
+
+Verifikasi cepat dari dalam container:
+```bash
+docker exec dokploy-traefik wget -qO- http://<container-frontend>:3000/ | head -3
+```
 
 ### Deploy gagal: `required variable DATABASE_PASSWORD is missing a value`
 

@@ -1,7 +1,6 @@
 services:
   postgres:
     image: postgres:17-alpine
-    container_name: himatris-oprec-postgres
     environment:
       POSTGRES_DB: ${DATABASE_NAME:-himatris_oprec}
       POSTGRES_USER: ${DATABASE_USER:-postgres}
@@ -22,7 +21,6 @@ services:
   # karena isinya bisa dibangun ulang; memori dibatasi supaya tidak menelan RAM server.
   redis:
     image: redis:7-alpine
-    container_name: himatris-oprec-redis
     command:
       - redis-server
       - --save
@@ -47,7 +45,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: himatris-oprec-backend
     environment:
       PORT: "8080"
       ENV: production
@@ -62,8 +59,8 @@ services:
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-86400}
       STORAGE_PATH: /app/storage
       MAX_CV_SIZE: ${MAX_CV_SIZE:-5242880}
-    expose:
-      - "8080"
+      FRONTEND_URL: ${FRONTEND_URL:-https://oprec.himatris.com}
+      BASE_URL: ${BASE_URL:-https://oprec.himatris.com}
     depends_on:
       postgres:
         condition: service_healthy
@@ -72,8 +69,11 @@ services:
     volumes:
       - cv_storage:/app/storage
     restart: always
+    # internal: agar bisa menghubungi postgres/redis.
+    # dokploy-network: supaya Traefik bisa merutekan domain ke service ini.
     networks:
       - internal
+      # - dokploy-network
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/v1/health"]
       interval: 30s
@@ -87,7 +87,6 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://oprec.himatris.com/api/v1}
-    container_name: himatris-oprec-frontend
     environment:
       NODE_ENV: production
       HOSTNAME: "0.0.0.0"
@@ -100,6 +99,7 @@ services:
     restart: always
     networks:
       - internal
+      # - dokploy-network
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/"]
       interval: 30s
@@ -114,3 +114,7 @@ volumes:
 networks:
   internal:
     driver: bridge
+  # # Network milik Traefik/Dokploy yang sudah ada di server. Tanpa ini domain
+  # # tidak bisa diakses (Traefik membalas 404 karena tidak menemukan service).
+  # dokploy-network:
+  #   external: true
