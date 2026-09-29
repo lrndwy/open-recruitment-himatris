@@ -35,7 +35,6 @@ export async function generateMetadata({
   if (isSharedStatus(status)) imageParams.set("status", status);
   if (division) imageParams.set("divisi", division);
   const query = imageParams.toString();
-  const ogImage = { url: `/api/og${query ? `?${query}` : ""}`, width: 1200, height: 630 };
 
   const shared = isSharedStatus(status);
   const title = shared
@@ -46,6 +45,13 @@ export async function generateMetadata({
   const description = shared
     ? "Hasil seleksi Open Recruitment HIMATRIS. Cek hasil seleksimu dengan NIM."
     : "Pendaftaran dan seleksi anggota baru Himpunan Mahasiswa Komputer dan Bisnis.";
+
+  const ogImage = {
+    url: `/og${query ? `?${query}` : ""}`,
+    width: 1200,
+    height: 630,
+    alt: title,
+  };
 
   return {
     metadataBase,

@@ -5,6 +5,12 @@ import { ImageResponse } from "next/og";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
+/*
+  Rute ini SENGAJA di `/og`, bukan `/api/og`: reverse proxy produksi mengarahkan
+  seluruh prefix `/api` ke backend Go, jadi kartu preview share akan 404 dan
+  gambarnya tidak pernah muncul kalau ditaruh di sana.
+*/
+
 // Warna ditulis sebagai hex karena satori tidak mendukung oklch().
 const COLORS = {
   bg: "#09090b",
