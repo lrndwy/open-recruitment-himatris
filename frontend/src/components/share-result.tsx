@@ -16,10 +16,11 @@ const SHARE_TITLE = "Open Recruitment HIMATRIS";
 
 type Props = {
   nim?: string | null;
+  name?: string | null;
   division?: string | null;
 };
 
-export function ShareResult({ nim, division }: Props) {
+export function ShareResult({ nim, name, division }: Props) {
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
   const timer = useRef<number | undefined>(undefined);
@@ -40,6 +41,8 @@ export function ShareResult({ nim, division }: Props) {
     : "Aku diterima pada Open Recruitment HIMATRIS!";
 
   const imageParams = new URLSearchParams({ status: "ACCEPTED" });
+  if (name) imageParams.set("nama", name);
+  if (nim) imageParams.set("nim", nim);
   if (division) imageParams.set("divisi", division);
   const imageUrl = `${origin}/og?${imageParams.toString()}`;
   const imageName = `hasil-seleksi-${nim ?? "himatris"}.png`;

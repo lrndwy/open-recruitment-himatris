@@ -241,6 +241,7 @@ export default function ResultPage() {
                     <div data-result-item>
                       <ShareResult
                         nim={result.nim}
+                        name={result.name}
                         division={result.accepted_division?.name}
                       />
                     </div>

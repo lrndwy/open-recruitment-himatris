@@ -45,16 +45,19 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const statusKey = searchParams.get("status")?.toUpperCase() ?? "";
   const division = searchParams.get("divisi")?.trim() ?? "";
+  const name = searchParams.get("nama")?.trim() ?? "";
+  const nim = searchParams.get("nim")?.trim() ?? "";
   const status = STATUS_TEXT[statusKey as keyof typeof STATUS_TEXT];
   const logo = await logoDataUri();
 
   const headline = status ? status.label : "OPEN RECRUITMENT";
   const accent = status ? status.color : COLORS.accent;
-  const subline = status
-    ? division
-      ? `di divisi ${division}`
-      : "Himpunan Mahasiswa Komputer dan Bisnis"
-    : "Himpunan Mahasiswa Komputer dan Bisnis";
+  // Nama dan NIM diisi pemanggil (halaman hasil & kartu preview) supaya gambar
+  // yang dibagikan menampilkan identitas pendaftar, bukan cuma statusnya.
+  const detail = [nim && `NIM ${nim}`, division && `Divisi ${division}`]
+    .filter(Boolean)
+    .join(" • ");
+  const subline = detail || "Himpunan Mahasiswa Komputer dan Bisnis";
 
   return new ImageResponse(
     (
@@ -96,11 +99,31 @@ export async function GET(request: Request) {
             </div>
           </div>
 
-          <div style={{ display: "flex", fontSize: 104, fontWeight: 800, color: accent, lineHeight: 1.1 }}>
+          <div style={{ display: "flex", fontSize: 96, fontWeight: 800, color: accent, lineHeight: 1.1 }}>
             {headline}
           </div>
 
-          <div style={{ display: "flex", fontSize: 44, color: COLORS.foreground }}>{subline}</div>
+          {name && (
+            <div
+              style={{
+                display: "flex",
+                fontSize: 72,
+                fontWeight: 700,
+                color: COLORS.foreground,
+                lineHeight: 1.2,
+                maxWidth: 1056,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {name}
+            </div>
+          )}
+
+          <div style={{ display: "flex", fontSize: 40, color: COLORS.muted, maxWidth: 1056, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {subline}
+          </div>
         </div>
 
         <div
@@ -114,8 +137,8 @@ export async function GET(request: Request) {
             color: COLORS.muted,
           }}
         >
-          <div style={{ display: "flex" }}>Open Recruitment Mahasiswa Komputer dan Bisnis</div>
-          <div style={{ display: "flex", color: COLORS.foreground }}>oprec.himatris.com</div>
+          <div style={{ display: "flex" }}>Open Recruitment HIMATRIS 2026</div>
+          <div style={{ display: "flex", color: COLORS.foreground }}>oprek-himatris.teknostudio.id</div>
         </div>
       </div>
     ),

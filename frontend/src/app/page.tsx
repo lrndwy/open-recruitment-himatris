@@ -8,6 +8,7 @@ type SearchParams = Promise<{ nim?: string }>;
 
 type PublicResult = {
   status: SelectionStatus;
+  name?: string;
   accepted_division?: { name: string } | null;
 };
 
@@ -57,6 +58,8 @@ export async function generateMetadata({
   const imageParams = new URLSearchParams();
   if (result) {
     imageParams.set("status", result.status);
+    if (result.name) imageParams.set("nama", result.name);
+    imageParams.set("nim", nim);
     if (division) imageParams.set("divisi", division);
   }
   const query = imageParams.toString();
