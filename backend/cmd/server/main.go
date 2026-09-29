@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"himatris-oprec-backend/internal/cache"
 	"himatris-oprec-backend/internal/config"
 	"himatris-oprec-backend/internal/database"
 	"himatris-oprec-backend/internal/router"
@@ -21,11 +22,14 @@ func main() {
 	cfg := config.Load()
 
 	ctx := context.Background()
-	pool, err := database.Connect(ctx, cfg.DatabaseURL())
+	pool, err := database.Connect(ctx, cfg.DatabaseURL(), cfg.MaxDBConns)
 	if err != nil {
 		log.Fatalf("gagal terhubung ke database: %v", err)
 	}
 	defer pool.Close()
+
+	cacheClient := cache.New(cfg.RedisURL)
+	defer cacheClient.Close()
 
 	if err := database.Migrate(ctx, pool, "migrations"); err != nil {
 		log.Fatalf("migrasi gagal: %v", err)
@@ -38,11 +42,18 @@ func main() {
 	if cfg.Env == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
-	r := router.New(cfg, pool)
+	r := router.New(cfg, pool, cacheClient)
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,
 		Handler: r,
+
+		// Batas waktu supaya koneksi yang menggantung tidak menahan resource
+		// server ketika pengunjung ramai.
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       60 * time.Second,  // unggah berkas sampai 8 MB
+		WriteTimeout:      120 * time.Second, // ekspor Excel / unduh berkas
+		IdleTimeout:       120 * time.Second,
 	}
 
 	go func() {

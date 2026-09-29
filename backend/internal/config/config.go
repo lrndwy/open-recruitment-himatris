@@ -8,19 +8,21 @@ import (
 )
 
 type Config struct {
-	Port           string
-	Env            string
-	DatabaseHost   string
-	DatabasePort   string
-	DatabaseName   string
-	DatabaseUser   string
-	DatabasePass   string
-	JWTSecret      string
-	JWTExpiresIn   int64
-	StoragePath    string
-	MaxCVSize      int64
-	FrontendURL    string
-	BaseURL        string
+	Port         string
+	Env          string
+	DatabaseHost string
+	DatabasePort string
+	DatabaseName string
+	DatabaseUser string
+	DatabasePass string
+	JWTSecret    string
+	JWTExpiresIn int64
+	StoragePath  string
+	MaxCVSize    int64
+	FrontendURL  string
+	BaseURL      string
+	RedisURL     string
+	MaxDBConns   int32
 }
 
 func Load() *Config {
@@ -40,6 +42,8 @@ func Load() *Config {
 		MaxCVSize:    getEnvInt64("MAX_CV_SIZE", 5242880),
 		FrontendURL:  getEnv("FRONTEND_URL", "http://localhost:3000"),
 		BaseURL:      getEnv("BASE_URL", "http://localhost:8080"),
+		RedisURL:     getEnv("REDIS_URL", ""),
+		MaxDBConns:   int32(getEnvInt64("DB_MAX_CONNS", 25)),
 	}
 }
 

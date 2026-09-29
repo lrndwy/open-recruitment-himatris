@@ -271,16 +271,21 @@ Mengambil seluruh Divisi aktif.
     {
       "id": "uuid",
       "name": "PSDM",
-      "description": "Pengembangan sumber daya manusia."
+      "description": "Pengembangan sumber daya manusia.",
+      "image_path": "divisions/uuid.jpg"
     },
     {
       "id": "uuid",
       "name": "Kajian Strategis",
-      "description": "Divisi kajian strategis."
+      "description": "Divisi kajian strategis.",
+      "image_path": null
     }
   ]
 }
 ```
+
+`image_path` adalah path relatif di dalam storage backend. URL publiknya:
+`{API_URL}/storage/{image_path}`. Bernilai `null` kalau admin belum mengunggah gambar.
 
 ---
 
@@ -570,6 +575,7 @@ GET /api/v1/public/result?nim=23010001
   "message": "Hasil seleksi berhasil ditemukan.",
   "data": {
     "nim": "23010001",
+    "name": "Nama Pendaftar",
     "status": "PENDING"
   }
 }
@@ -583,7 +589,12 @@ GET /api/v1/public/result?nim=23010001
   "message": "Hasil seleksi berhasil ditemukan.",
   "data": {
     "nim": "23010001",
-    "status": "ACCEPTED"
+    "name": "Nama Pendaftar",
+    "status": "ACCEPTED",
+    "accepted_division": {
+      "id": "uuid",
+      "name": "PSDM"
+    }
   }
 }
 ```
@@ -596,6 +607,7 @@ GET /api/v1/public/result?nim=23010001
   "message": "Hasil seleksi berhasil ditemukan.",
   "data": {
     "nim": "23010001",
+    "name": "Nama Pendaftar",
     "status": "REJECTED"
   }
 }
@@ -1395,35 +1407,74 @@ untuk production apabila API menggunakan authentication.
 
 # 51. Rate Limiting
 
-Public endpoint perlu memiliki rate limiting, terutama:
+Pembatas permintaan berjalan lewat Redis dengan hitungan per IP asli
+(`X-Forwarded-For` hanya dipercaya dari jaringan internal/proxy).
+
+Yang sudah diterapkan:
 
 ```text
-POST /public/applications
-GET /public/result
-POST /auth/login
+GET  /public/result          120 permintaan / menit / IP
+POST /public/applications     20 permintaan / menit / IP
 ```
 
-Tujuan:
+Balasan saat melewati batas: HTTP `429`
 
-* Mencegah spam registration.
-* Mencegah brute-force login.
-* Mengurangi abuse pada result lookup.
+```json
+{
+  "success": false,
+  "message": "Terlalu banyak permintaan. Coba lagi sebentar lagi.",
+  "error": { "code": "TOO_MANY_REQUESTS" }
+}
+```
+
+Catatan:
+
+* Limit dibuat longgar karena pengunjung kampus sering berbagi satu IP (NAT).
+* Kalau Redis mati, pembatas ini otomatis dilewati (fail-open) supaya situs
+  tetap melayani, bukan ikut tumbang.
+* `POST /auth/login` belum dibatasi; kalau mau ditambahkan, pakai pola yang sama.
+
+---
+
+# 51.1 Cache Konten Publik
+
+Endpoint publik berikut di-cache 30 detik di Redis dan dibuang otomatis begitu
+admin mengubah data terkait:
+
+```text
+GET /public/registration
+GET /public/settings
+GET /public/divisions
+GET /public/program-studies
+```
+
+Dampaknya: lonjakan pengunjung di halaman depan tidak semuanya sampai ke
+PostgreSQL. `GET /public/result` sengaja **tidak** di-cache karena hasilnya
+spesifik per NIM.
 
 ---
 
 # 52. Result Lookup Protection
 
-Karena hasil dapat dicari menggunakan NIM, endpoint result harus memiliki perlindungan terhadap enumeration.
+Karena hasil dapat dicari menggunakan NIM, endpoint result rawan enumeration
+(NIM berpola, jadi sebagian bisa ditebak).
 
-Minimal:
+Yang berlaku sekarang:
 
-* Rate limiting.
-* Generic error response.
-* Tidak mengembalikan data pribadi.
+* Endpoint hanya mengembalikan `nim`, `name`, `status`, dan `accepted_division`.
 * Tidak mengembalikan applicant ID.
-* Tidak mengembalikan CV.
+* Tidak mengembalikan CV atau berkas lain.
 * Tidak mengembalikan Program Studi.
 * Tidak mengembalikan alasan pendaftaran.
+* NIM tidak ditemukan memakai pesan generik (`APPLICANT_NOT_FOUND`).
+
+Belum diterapkan:
+
+* **Rate limiting per IP.** Ini penting karena `name` ikut dikembalikan, jadi
+  endpoint ini bisa dipakai untuk memanen nama pendaftar kalau ada yang
+  menembak NIM berpola. Pasang di level route `/public/result`.
+* Opsi masking nama (misal `Budi S*****`) kalau nama lengkap dianggap terlalu
+  terbuka.
 
 ---
 
@@ -1433,6 +1484,7 @@ Minimal:
 
 ```text
 GET    /public/registration
+GET    /public/settings
 GET    /public/divisions
 GET    /public/program-studies
 
@@ -1469,6 +1521,15 @@ GET    /admin/divisions
 POST   /admin/divisions
 PUT    /admin/divisions/:id
 DELETE /admin/divisions/:id
+PUT    /admin/divisions/:id/image
+DELETE /admin/divisions/:id/image
+```
+
+## Landing Page
+
+```text
+PUT    /admin/landing-hero
+DELETE /admin/landing-hero
 ```
 
 ## Program Studies
@@ -1687,6 +1748,7 @@ DELETE /admin/recruitment-events/:id
 │
 ├── /public
 │   ├── GET  /registration
+│   ├── GET  /settings
 │   ├── GET  /divisions
 │   ├── GET  /program-studies
 │   ├── POST /applications
@@ -1706,7 +1768,13 @@ DELETE /admin/recruitment-events/:id
     │   ├── GET /
     │   ├── POST /
     │   ├── PUT /:id
-    │   └── DELETE /:id
+    │   ├── DELETE /:id
+    │   ├── PUT /:id/image
+    │   └── DELETE /:id/image
+    │
+    ├── /landing-hero
+    │   ├── PUT /
+    │   └── DELETE /
     │
     ├── /program-studies
     │   ├── GET /
@@ -1762,3 +1830,125 @@ PostgreSQL   Storage
 ```
 
 Dengan kontrak API ini, frontend dan backend dapat dikembangkan secara **parallel development** tanpa harus saling menunggu implementasi internal masing-masing.
+
+---
+
+# 61. Landing Images (Foto Hero & Gambar Divisi)
+
+Gambar halaman depan diunggah dari halaman admin, bukan lewat repo.
+
+## PUT `/admin/divisions/:id/image`
+
+Mengunggah atau mengganti gambar sebuah Divisi. File lama otomatis dihapus.
+
+### Request
+
+`multipart/form-data`
+
+```text
+image = <file>
+```
+
+### Validasi
+
+```text
+Format: JPG, JPEG, PNG, WEBP
+Ukuran maksimal: 8 MB
+```
+
+### Kompresi
+
+Semua gambar dikompres di server sebelum disimpan:
+
+```text
+Resize  : lebar maksimum 1280 px (divisi) / 1920 px (hero), tidak diperbesar
+Encode  : JPEG kualitas 82, latar putih untuk gambar transparan
+Hasil   : selalu berekstensi .jpg
+```
+
+Foto dari kamera HP (3-8 MB) biasanya menyusut jadi ratusan KB, jadi storage dan
+bandwidth tidak cepat penuh.
+
+### Response
+
+```json
+{
+  "success": true,
+  "message": "Gambar divisi berhasil diunggah.",
+  "data": {
+    "image_path": "divisions/uuid.jpg"
+  }
+}
+```
+
+---
+
+## DELETE `/admin/divisions/:id/image`
+
+Menghapus gambar Divisi beserta file fisiknya.
+
+---
+
+## PUT `/admin/landing-hero`
+
+Mengunggah atau mengganti foto background landing page.
+
+### Request
+
+`multipart/form-data`
+
+```text
+image = <file>
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "message": "Foto landing page berhasil diunggah.",
+  "data": {
+    "landing_hero_path": "landing/uuid.jpg"
+  }
+}
+```
+
+---
+
+## DELETE `/admin/landing-hero`
+
+Menghapus foto background landing page beserta file fisiknya.
+
+---
+
+## GET `/public/settings`
+
+Mengambil pengaturan tampilan landing page.
+
+### Response
+
+```json
+{
+  "success": true,
+  "message": "Pengaturan berhasil diambil.",
+  "data": {
+    "landing_hero_path": "landing/uuid.jpg"
+  }
+}
+```
+
+`landing_hero_path` bernilai `null` kalau admin belum mengunggah foto. Frontend
+menyusun URL-nya menjadi `{API_URL}/storage/{path}`.
+
+---
+
+## Penyimpanan File
+
+```text
+storage/divisions/<uuid>.<ext>
+storage/landing/<uuid>.<ext>
+```
+
+File disajikan publik lewat `GET /storage/{path}` (di belakang `/api/v1`).
+Karena nama filenya UUID, mengganti gambar menghasilkan URL baru sehingga cache
+browser tidak perlu di-bust manual.

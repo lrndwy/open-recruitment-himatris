@@ -53,12 +53,13 @@ func (h *PublicHandler) GetRegistration(c *gin.Context) {
 // GET /public/divisions
 func (h *PublicHandler) ListDivisions(c *gin.Context) {
 	type pubDivision struct {
-		ID          string `json:"id"`
-		Name        string `json:"name"`
-		Description string `json:"description"`
+		ID          string  `json:"id"`
+		Name        string  `json:"name"`
+		Description string  `json:"description"`
+		ImagePath   *string `json:"image_path"`
 	}
 	rows, err := h.DB.Query(c,
-		`SELECT id, name, COALESCE(description, '') FROM divisions
+		`SELECT id, name, COALESCE(description, ''), image_path FROM divisions
 		 WHERE deleted_at IS NULL AND is_active = true ORDER BY name`)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Terjadi kesalahan.", "INTERNAL_SERVER_ERROR")
@@ -68,7 +69,7 @@ func (h *PublicHandler) ListDivisions(c *gin.Context) {
 	items := []pubDivision{}
 	for rows.Next() {
 		var d pubDivision
-		if err := rows.Scan(&d.ID, &d.Name, &d.Description); err != nil {
+		if err := rows.Scan(&d.ID, &d.Name, &d.Description, &d.ImagePath); err != nil {
 			respondError(c, http.StatusInternalServerError, "Terjadi kesalahan.", "INTERNAL_SERVER_ERROR")
 			return
 		}
@@ -111,13 +112,13 @@ func (h *PublicHandler) GetResult(c *gin.Context) {
 		respondError(c, http.StatusUnprocessableEntity, "NIM wajib diisi.", "VALIDATION_ERROR")
 		return
 	}
-	var status string
+	var status, name string
 	var divAccID, divAccName *string
 	err := h.DB.QueryRow(c,
-		`SELECT a.selection_status::text, dacc.id, dacc.name
+		`SELECT a.selection_status::text, a.name, dacc.id, dacc.name
 		 FROM applicants a
 		 LEFT JOIN divisions dacc ON dacc.id = a.accepted_division_id
-		 WHERE a.nim = $1`, nim).Scan(&status, &divAccID, &divAccName)
+		 WHERE a.nim = $1`, nim).Scan(&status, &name, &divAccID, &divAccName)
 	if errors.Is(err, pgx.ErrNoRows) {
 		respondError(c, http.StatusNotFound, "Data pendaftar tidak ditemukan.", "APPLICANT_NOT_FOUND")
 		return
@@ -126,7 +127,7 @@ func (h *PublicHandler) GetResult(c *gin.Context) {
 		respondError(c, http.StatusInternalServerError, "Terjadi kesalahan.", "INTERNAL_SERVER_ERROR")
 		return
 	}
-	data := gin.H{"nim": nim, "status": status}
+	data := gin.H{"nim": nim, "name": name, "status": status}
 	if divAccID != nil && divAccName != nil {
 		data["accepted_division"] = gin.H{"id": *divAccID, "name": *divAccName}
 	}

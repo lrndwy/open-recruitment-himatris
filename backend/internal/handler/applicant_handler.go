@@ -91,7 +91,7 @@ func (h *ApplicantHandler) List(c *gin.Context) {
 		conds = append(conds, fmt.Sprintf("(a.division_1_id = %s OR a.division_2_id = %s)", n(v), n(v)))
 	}
 	if v := strings.TrimSpace(c.Query("status")); v != "" {
-		conds = append(conds, "a.selection_status::text = "+n(v))
+		conds = append(conds, "a.selection_status = "+n(v)+"::selection_status")
 	}
 	if v := strings.TrimSpace(c.Query("registration_period_id")); v != "" {
 		conds = append(conds, "a.registration_period_id = "+n(v))
@@ -216,8 +216,8 @@ func (h *ApplicantHandler) Get(c *gin.Context) {
 
 	data := gin.H{
 		"id": it.ID, "name": it.Name, "nim": it.NIM, "class": it.Class,
-		"whatsapp":   it.WhatsApp,
-		"birth_date": it.BirthDate,
+		"whatsapp":      it.WhatsApp,
+		"birth_date":    it.BirthDate,
 		"program_study": it.ProgramStudy,
 		"division_1": gin.H{
 			"id": it.Division1.ID, "name": it.Division1.Name,

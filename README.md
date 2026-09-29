@@ -4,7 +4,7 @@ Sistem open recruitment untuk organisasi HIMATRIS dengan fitur manajemen pendaft
 
 ## Stack
 
-- **Backend**: Go 1.26, Gin, PostgreSQL 17, golang-migrate
+- **Backend**: Go 1.26, Gin, PostgreSQL 17, Redis 7, golang-migrate
 - **Frontend**: Next.js 15, React 19, TypeScript, Tailwind CSS
 - **Infra**: Docker, Docker Compose, Caddy (auto HTTPS)
 

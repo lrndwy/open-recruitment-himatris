@@ -1,5 +1,11 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api/v1";
 
+// File yang diunggah (gambar divisi, foto landing page) disimpan backend di
+// storage/ dan disajikan pada /storage/... — path relatif dari API diubah jadi URL.
+export function storageUrl(path: string): string {
+  return `${API_URL}/storage/${path}`;
+}
+
 export class ApiError extends Error {
   code: string;
   status: number;
@@ -63,7 +69,10 @@ export const api = {
       body: data instanceof FormData ? data : JSON.stringify(data),
     }),
   put: <T>(path: string, data: unknown) =>
-    apiFetch<T>(path, { method: "PUT", body: JSON.stringify(data) }),
+    apiFetch<T>(path, {
+      method: "PUT",
+      body: data instanceof FormData ? data : JSON.stringify(data),
+    }),
   patch: <T>(path: string, data: unknown) =>
     apiFetch<T>(path, { method: "PATCH", body: JSON.stringify(data) }),
   delete: <T>(path: string) => apiFetch<T>(path, { method: "DELETE" }),

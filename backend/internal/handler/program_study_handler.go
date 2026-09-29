@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"himatris-oprec-backend/internal/cache"
 	"net/http"
 	"strconv"
 
@@ -9,7 +10,8 @@ import (
 )
 
 type ProgramStudyHandler struct {
-	DB *pgxpool.Pool
+	DB    *pgxpool.Pool
+	Cache *cache.Cache
 }
 
 func (h *ProgramStudyHandler) List(c *gin.Context) {
@@ -101,6 +103,7 @@ func (h *ProgramStudyHandler) Create(c *gin.Context) {
 		return
 	}
 
+	h.Cache.Del(c.Request.Context(), cache.KeyProgramStudies)
 	respondSuccess(c, http.StatusCreated, "Program Studi berhasil dibuat.", gin.H{
 		"id": id, "name": req.Name, "code": req.Code, "is_active": isActive,
 	})
@@ -129,6 +132,7 @@ func (h *ProgramStudyHandler) Update(c *gin.Context) {
 		return
 	}
 
+	h.Cache.Del(c.Request.Context(), cache.KeyProgramStudies)
 	respondSuccess(c, http.StatusOK, "Program Studi berhasil diperbarui.", gin.H{
 		"id": id, "name": req.Name, "code": req.Code, "is_active": isActive,
 	})
@@ -143,5 +147,6 @@ func (h *ProgramStudyHandler) Delete(c *gin.Context) {
 		respondError(c, http.StatusNotFound, "Program Studi tidak ditemukan.", "NOT_FOUND")
 		return
 	}
+	h.Cache.Del(c.Request.Context(), cache.KeyProgramStudies)
 	respondSuccess(c, http.StatusOK, "Program Studi berhasil dihapus.", nil)
 }

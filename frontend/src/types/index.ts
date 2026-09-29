@@ -15,6 +15,11 @@ export type Division = {
   name: string;
   description: string | null;
   is_active: boolean;
+  image_path: string | null;
+};
+
+export type SiteSettings = {
+  landing_hero_path: string | null;
 };
 
 export type ProgramStudy = {

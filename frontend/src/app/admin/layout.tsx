@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   CalendarRange,
   GraduationCap,
+  Images,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { href: "/admin/registration", label: "Periode Pendaftaran", icon: CalendarRange },
   { href: "/admin/divisions", label: "Divisi", icon: Network },
   { href: "/admin/program-studies", label: "Program Studi", icon: GraduationCap },
+  { href: "/admin/landing", label: "Landing Page", icon: Images },
   { href: "/admin/users", label: "Kelola Admin", icon: UsersRound },
 ];
 

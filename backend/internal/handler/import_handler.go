@@ -428,10 +428,24 @@ func (h *ImportHandler) ImportApplicants(c *gin.Context) {
 		return
 	}
 
-	const insertSQL = `INSERT INTO applicants
+	/*
+		Satu transaksi untuk seluruh baris. Sebelumnya tiap baris commit sendiri
+		(N+1: 1.000 baris = 1.000 commit + 1.000 round trip), dan itu yang paling
+		mahal saat import file besar. Duplikat ditangani ON CONFLICT sehingga
+		tidak ada error yang membatalkan transaksi.
+	*/
+	insertSQL := `INSERT INTO applicants
 		(registration_period_id, program_study_id, name, nim, class, whatsapp, birth_date,
 		 division_1_id, division_2_id, selection_status, created_at, updated_at)
-	 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::selection_status,$11,$11)`
+	 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::selection_status,$11,$11)
+	 ON CONFLICT (registration_period_id, nim) DO NOTHING`
+
+	tx, err := h.DB.Begin(c.Request.Context())
+	if err != nil {
+		respondError(c, http.StatusInternalServerError, "Terjadi kesalahan.", "INTERNAL_SERVER_ERROR")
+		return
+	}
+	defer func() { _ = tx.Rollback(c.Request.Context()) }()
 
 	created, skipped, failed, total := 0, 0, 0, 0
 	seenNIM := map[string]bool{}
@@ -551,16 +565,24 @@ func (h *ImportHandler) ImportApplicants(c *gin.Context) {
 		}
 		seenNIM[nim] = true
 
-		if _, err := h.DB.Exec(c, insertSQL, periodID, prodiID, name, nim, class, whatsapp, birth, div1ID, div2, status, regAt); err != nil {
-			failed++
-			msg := "Gagal menyimpan: " + err.Error()
-			if isUniqueViolation(err) {
-				msg = "NIM sudah terdaftar di periode ini."
-			}
-			errs = append(errs, gin.H{"row": excelRow, "nim": nim, "message": msg})
+		tag, err := tx.Exec(c.Request.Context(), insertSQL, periodID, prodiID, name, nim, class, whatsapp, birth, div1ID, div2, status, regAt)
+		if err != nil {
+			_ = tx.Rollback(c.Request.Context())
+			respondError(c, http.StatusUnprocessableEntity,
+				fmt.Sprintf("Import dibatalkan pada baris %d: %s", excelRow, err.Error()), "IMPORT_FAILED")
+			return
+		}
+		if tag.RowsAffected() == 0 {
+			skipped++
+			errs = append(errs, gin.H{"row": excelRow, "nim": nim, "message": "NIM sudah terdaftar di periode ini."})
 			continue
 		}
 		created++
+	}
+
+	if err := tx.Commit(c.Request.Context()); err != nil {
+		respondError(c, http.StatusInternalServerError, "Import gagal disimpan.", "INTERNAL_SERVER_ERROR")
+		return
 	}
 
 	truncated := false

@@ -7,12 +7,23 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func Connect(ctx context.Context, url string) (*pgxpool.Pool, error) {
+// Connect menyiapkan connection pool. Nilai di bawah dipilih untuk situs dengan
+// ratusan pengunjung bersamaan: cukup banyak koneksi siap pakai, tapi tetap
+// jauh di bawah max_connections PostgreSQL (default 100).
+func Connect(ctx context.Context, url string, maxConns int32) (*pgxpool.Pool, error) {
 	cfg, err := pgxpool.ParseConfig(url)
 	if err != nil {
 		return nil, err
 	}
-	cfg.MaxConns = 10
+
+	if maxConns < 5 {
+		maxConns = 25
+	}
+	cfg.MaxConns = maxConns
+	cfg.MinConns = 2
+	cfg.MaxConnLifetime = 30 * time.Minute
+	cfg.MaxConnIdleTime = 5 * time.Minute
+	cfg.HealthCheckPeriod = time.Minute
 
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {

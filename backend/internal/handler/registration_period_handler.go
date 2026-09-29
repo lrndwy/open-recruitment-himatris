@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"himatris-oprec-backend/internal/cache"
 	"net/http"
 	"time"
 
@@ -11,7 +12,8 @@ import (
 )
 
 type RegistrationPeriodHandler struct {
-	DB *pgxpool.Pool
+	DB    *pgxpool.Pool
+	Cache *cache.Cache
 }
 
 type registrationPeriodResponse struct {
@@ -148,6 +150,7 @@ func (h *RegistrationPeriodHandler) Create(c *gin.Context) {
 		return
 	}
 	p := h.toResponse(r)
+	h.Cache.Del(c.Request.Context(), cache.KeyRegistration)
 	respondSuccess(c, http.StatusCreated, "Periode berhasil dibuat.", gin.H{
 		"id": p.ID, "name": p.Name, "start_at": p.StartAt, "end_at": p.EndAt,
 		"status": computeStatus(p.StartAt, p.EndAt), "created_at": p.CreatedAt, "updated_at": p.UpdatedAt,
@@ -194,6 +197,7 @@ func (h *RegistrationPeriodHandler) Update(c *gin.Context) {
 		return
 	}
 	p := h.toResponse(r)
+	h.Cache.Del(c.Request.Context(), cache.KeyRegistration)
 	respondSuccess(c, http.StatusOK, "Periode berhasil diperbarui.", gin.H{
 		"id": p.ID, "name": p.Name, "start_at": p.StartAt, "end_at": p.EndAt,
 		"status": computeStatus(p.StartAt, p.EndAt), "created_at": p.CreatedAt, "updated_at": p.UpdatedAt,
@@ -216,5 +220,6 @@ func (h *RegistrationPeriodHandler) Delete(c *gin.Context) {
 		respondError(c, http.StatusNotFound, "Periode tidak ditemukan.", "NOT_FOUND")
 		return
 	}
+	h.Cache.Del(c.Request.Context(), cache.KeyRegistration)
 	respondSuccess(c, http.StatusOK, "Periode berhasil dihapus.", nil)
 }

@@ -15,8 +15,13 @@ backend/bin/
 backend/.env
 
 # Storage (uploaded files)
+# Path asli ada di backend/storage, jadi ditulis eksplisit supaya berkas
+# pendaftar (CV, surat izin, portofolio, poster) dan gambar landing tidak
+# pernah ikut ter-commit.
 storage/cvs/*
 !storage/cvs/.gitkeep
+backend/storage/*
+!backend/storage/**/.gitkeep
 
 # OS
 .DS_Store

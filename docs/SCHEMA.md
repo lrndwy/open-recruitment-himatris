@@ -683,6 +683,18 @@ ON DELETE RESTRICT
 
 untuk menjaga historical data.
 
+### Gambar Divisi & Pengaturan Landing Page
+
+Migration `017_landing_images.sql` menambahkan:
+
+```text
+divisions.image_path          path relatif gambar divisi di dalam storage (nullable)
+site_settings(key, value)     pengaturan tampilan landing page, key: 'landing_hero'
+```
+
+`divisions.image_path` diisi dari halaman admin (bukan repo), dan URL publiknya
+dibentuk dari `{API_URL}/storage/{image_path}`.
+
 ---
 
 ## Applicant → File

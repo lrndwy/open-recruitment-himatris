@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"himatris-oprec-backend/internal/cache"
 	"net/http"
 	"strconv"
 
@@ -11,7 +12,8 @@ import (
 )
 
 type DivisionHandler struct {
-	DB *pgxpool.Pool
+	DB    *pgxpool.Pool
+	Cache *cache.Cache
 }
 
 func (h *DivisionHandler) List(c *gin.Context) {
@@ -44,7 +46,7 @@ func (h *DivisionHandler) List(c *gin.Context) {
 
 	args = append(args, limit, (page-1)*limit)
 	rows, err := h.DB.Query(c,
-		`SELECT id, name, description, is_active, created_at, updated_at
+		`SELECT id, name, description, is_active, image_path, created_at, updated_at
 		 FROM divisions WHERE `+where+` ORDER BY created_at
 		 LIMIT $`+strconv.Itoa(len(args)-1)+` OFFSET $`+strconv.Itoa(len(args)),
 		args...)
@@ -57,16 +59,17 @@ func (h *DivisionHandler) List(c *gin.Context) {
 	items := []gin.H{}
 	for rows.Next() {
 		var id, name string
-		var description *string
+		var description, imagePath *string
 		var isActive bool
 		var createdAt, updatedAt any
-		if err := rows.Scan(&id, &name, &description, &isActive, &createdAt, &updatedAt); err != nil {
+		if err := rows.Scan(&id, &name, &description, &isActive, &imagePath, &createdAt, &updatedAt); err != nil {
 			respondError(c, http.StatusInternalServerError, "Terjadi kesalahan.", "INTERNAL_SERVER_ERROR")
 			return
 		}
 		items = append(items, gin.H{
 			"id": id, "name": name, "description": description,
-			"is_active": isActive, "created_at": createdAt, "updated_at": updatedAt,
+			"is_active": isActive, "image_path": imagePath,
+			"created_at": createdAt, "updated_at": updatedAt,
 		})
 	}
 
@@ -113,6 +116,7 @@ func (h *DivisionHandler) Create(c *gin.Context) {
 		return
 	}
 
+	h.Cache.Del(c.Request.Context(), cache.KeyDivisions)
 	respondSuccess(c, http.StatusCreated, "Divisi berhasil dibuat.", gin.H{
 		"id": id, "name": req.Name, "description": req.Description, "is_active": isActive,
 	})
@@ -141,6 +145,7 @@ func (h *DivisionHandler) Update(c *gin.Context) {
 		return
 	}
 
+	h.Cache.Del(c.Request.Context(), cache.KeyDivisions)
 	respondSuccess(c, http.StatusOK, "Divisi berhasil diperbarui.", gin.H{
 		"id": id, "name": req.Name, "description": req.Description, "is_active": isActive,
 	})
@@ -155,5 +160,6 @@ func (h *DivisionHandler) Delete(c *gin.Context) {
 		respondError(c, http.StatusNotFound, "Divisi tidak ditemukan.", "NOT_FOUND")
 		return
 	}
+	h.Cache.Del(c.Request.Context(), cache.KeyDivisions)
 	respondSuccess(c, http.StatusOK, "Divisi berhasil dihapus.", nil)
 }

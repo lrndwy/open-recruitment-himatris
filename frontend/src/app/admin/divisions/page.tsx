@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { Images } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,7 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, storageUrl } from "@/lib/api";
 import type { Division, Paginated } from "@/types";
 
 export default function DivisionsPage() {
@@ -96,10 +98,38 @@ export default function DivisionsPage() {
     }
   }
 
+  async function handleImageUpload(item: Division, file?: File) {
+    if (!file) return;
+    const body = new FormData();
+    body.append("image", file);
+    try {
+      await api.put(`/admin/divisions/${item.id}/image`, body);
+      load();
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message : "Terjadi kesalahan.");
+    }
+  }
+
+  async function handleImageDelete(item: Division) {
+    if (!confirm(`Hapus gambar divisi "${item.name}"?`)) return;
+    try {
+      await api.delete(`/admin/divisions/${item.id}/image`);
+      load();
+    } catch (err) {
+      alert(err instanceof ApiError ? err.message : "Terjadi kesalahan.");
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Divisi</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Divisi</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Gambar divisi tampil di landing page. Format JPG/PNG/WEBP maksimal 8
+            MB, otomatis dikompres dan diperkecil ke lebar 1280 px.
+          </p>
+        </div>
         <Button onClick={openCreate}>Tambah Divisi</Button>
       </div>
 
@@ -119,6 +149,7 @@ export default function DivisionsPage() {
             <TableRow>
               <TableHead>Nama</TableHead>
               <TableHead>Deskripsi</TableHead>
+              <TableHead>Gambar</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-40 text-right">Aksi</TableHead>
             </TableRow>
@@ -128,6 +159,46 @@ export default function DivisionsPage() {
               <TableRow key={item.id}>
                 <TableCell className="font-medium">{item.name}</TableCell>
                 <TableCell>{item.description}</TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-3">
+                    {item.image_path ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={storageUrl(item.image_path)}
+                        alt={`Gambar divisi ${item.name}`}
+                        className="h-10 w-16 rounded border object-cover"
+                      />
+                    ) : (
+                      <span className="flex h-10 w-16 items-center justify-center rounded border border-dashed text-muted-foreground">
+                        <Images className="size-4" aria-hidden />
+                      </span>
+                    )}
+                    <Button variant="outline" size="sm" asChild>
+                      <label htmlFor={`image-${item.id}`} className="cursor-pointer">
+                        {item.image_path ? "Ganti" : "Unggah"}
+                      </label>
+                    </Button>
+                    <input
+                      id={`image-${item.id}`}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="sr-only"
+                      onChange={(e) => {
+                        handleImageUpload(item, e.target.files?.[0]);
+                        e.target.value = "";
+                      }}
+                    />
+                    {item.image_path && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleImageDelete(item)}
+                      >
+                        Hapus gambar
+                      </Button>
+                    )}
+                  </div>
+                </TableCell>
                 <TableCell>
                   <Badge variant={item.is_active ? "default" : "secondary"}>
                     {item.is_active ? "Aktif" : "Nonaktif"}
@@ -145,7 +216,7 @@ export default function DivisionsPage() {
             ))}
             {data?.items.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground">
+                <TableCell colSpan={5} className="text-center text-muted-foreground">
                   Tidak ada data.
                 </TableCell>
               </TableRow>

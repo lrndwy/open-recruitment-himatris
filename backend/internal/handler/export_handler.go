@@ -23,15 +23,17 @@ func (h *ExportHandler) ExportApplicants(c *gin.Context) {
 	// filter opsional (sama seperti list applicants, tanpa pagination)
 	where := []string{"1=1"}
 	var args []any
-	addFilter := func(col, val string) {
+	// cast dipakai untuk kolom enum supaya parameter yang dibandingkan juga
+	// bertipe enum, sehingga index selection_status tetap terpakai.
+	addFilter := func(col, val, cast string) {
 		args = append(args, val)
-		where = append(where, fmt.Sprintf("%s = $%d", col, len(args)))
+		where = append(where, fmt.Sprintf("%s = $%d%s", col, len(args), cast))
 	}
 	if v := c.Query("registration_period_id"); v != "" {
-		addFilter("a.registration_period_id", v)
+		addFilter("a.registration_period_id", v, "")
 	}
 	if v := c.Query("program_study_id"); v != "" {
-		addFilter("a.program_study_id", v)
+		addFilter("a.program_study_id", v, "")
 	}
 	if v := c.Query("division_id"); v != "" {
 		args = append(args, v)
@@ -39,7 +41,7 @@ func (h *ExportHandler) ExportApplicants(c *gin.Context) {
 		where = append(where, fmt.Sprintf("(a.division_1_id = $%d OR a.division_2_id = $%d)", p, p))
 	}
 	if v := strings.TrimSpace(c.Query("status")); v != "" {
-		addFilter("a.selection_status::text", v)
+		addFilter("a.selection_status", v, "::selection_status")
 	}
 
 	// Satu baris per file (CV/POSTER/PORTFOLIO/PARENTAL_CONSENT) via subquery; agregasi jadi satu sel per jenis
@@ -79,7 +81,7 @@ func (h *ExportHandler) ExportApplicants(c *gin.Context) {
 
 	type row struct {
 		name, nim, class, whatsapp, birth, prodi, div1, div2, cv, poster, portfolio, parentalConsent, status string
-		createdAt time.Time
+		createdAt                                                                                            time.Time
 	}
 	var data []row
 	total, pending, accepted, rejected := 0, 0, 0, 0
@@ -113,13 +115,13 @@ func (h *ExportHandler) ExportApplicants(c *gin.Context) {
 	headers := []string{"No", "Nama", "NIM", "Kelas", "WhatsApp", "Tanggal Lahir", "Program Studi", "Divisi 1", "Divisi 2",
 		"CV", "Poster", "Portofolio", "Surat Persetujuan", "Status", "Tanggal Pendaftaran"}
 	sheetNames := []string{"Data Pendaftar", "Statistik", "Rekap Prodi", "Rekap Divisi"}
-	
+
 	// Rename default sheet to first name
 	if err := f.SetSheetName("Sheet1", sheetNames[0]); err != nil {
 		respondError(c, http.StatusInternalServerError, "Terjadi kesalahan.", "INTERNAL_SERVER_ERROR")
 		return
 	}
-	
+
 	// Create remaining sheets
 	for i := 1; i < len(sheetNames); i++ {
 		if _, err := f.NewSheet(sheetNames[i]); err != nil {
@@ -223,4 +225,3 @@ func (h *ExportHandler) ExportApplicants(c *gin.Context) {
 	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
 	c.Data(http.StatusOK, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf.Bytes())
 }
-

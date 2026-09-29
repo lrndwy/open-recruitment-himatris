@@ -1,0 +1,16 @@
+# Override agar docker-compose.prod.yml bisa dijalankan di lokal (Dokploy TIDAK dipakai).
+# Pakai: docker compose -f docker-compose.prod.yml -f docker-compose.prod.local.yml up -d --build
+services:
+  backend:
+    ports:
+      - "8080:8080"
+    environment:
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      BASE_URL: ${BASE_URL:-http://localhost:8080}
+
+  frontend:
+    build:
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080/api/v1}
+    ports:
+      - "3000:3000"
