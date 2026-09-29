@@ -113,24 +113,12 @@ export function LandingPage() {
           .from("[data-hero-cta]", { y: 12, autoAlpha: 0 }, "-=0.35")
           .from("[data-hero-stat]", { y: 16, autoAlpha: 0, stagger: 0.08 }, "-=0.3");
 
-        // Foto hero bergerak pelan saat halaman di-scroll. Sengaja hanya
-        // translate (tanpa scale) dan hanya di layar >=768px: menggerakkan
-        // lapisan sebesar ini di HP bikin scroll terasa patah-patah.
-        mm.add(
-          "(min-width: 768px) and (prefers-reduced-motion: no-preference)",
-          () => {
-            gsap.to("[data-hero-photo]", {
-              yPercent: 7,
-              ease: "none",
-              scrollTrigger: {
-                trigger: "[data-hero-section]",
-                start: "top top",
-                end: "bottom top",
-                scrub: true,
-              },
-            });
-          },
-        );
+        /*
+          Foto hero sengaja TIDAK ikut digerakkan saat scroll. Animasi parallax
+          memindahkan layer foto penuh layar setiap frame (di layar Retina bisa
+          ~39 MB per frame), dan itu yang membuat scroll terasa patah-patah.
+          Efek "wah" tetap ada dari timeline masuk hero dan reveal per section.
+        */
 
         gsap.utils.toArray<HTMLElement>("[data-reveal]").forEach((el) => {
           gsap.from(el, {
@@ -209,7 +197,7 @@ export function LandingPage() {
             width={1920}
             height={1280}
             fetchPriority="high"
-            className="absolute inset-x-0 -top-[8%] -z-10 h-[116%] w-full object-cover will-change-transform"
+            className="absolute inset-0 -z-10 size-full object-cover"
           />
           <div className="absolute inset-0 -z-10 bg-gradient-to-t from-zinc-950 via-zinc-950/85 to-zinc-950/35" />
 

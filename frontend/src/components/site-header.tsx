@@ -28,7 +28,7 @@ export function SiteHeader() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/10 bg-zinc-950/90 backdrop-blur-none sm:backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-white/10 bg-zinc-950/95">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:h-20 sm:gap-6 sm:px-6">
         <Link href="/" aria-label="Beranda HIMATRIS" className="shrink-0">
           <Logo
