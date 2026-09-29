@@ -201,6 +201,7 @@ func (h *ImportHandler) DownloadTemplate(c *gin.Context) {
 		"Kolom opsional: Divisi 2, Status, Tanggal Pendaftaran.",
 		"Format tanggal: DD/MM/YYYY (contoh 31/12/2006).",
 		"Status: PENDING/Menunggu, ACCEPTED/Diterima, REJECTED/Ditolak. Kosong = PENDING.",
+		"Baris berstatus Diterima/ACCEPTED otomatis dicatat diterima di Divisi 1 (divisi pilihan pertama).",
 		"Divisi 2 boleh dikosongkan; bila diisi harus berbeda dari Divisi 1.",
 		"NIM yang sudah terdaftar pada periode tujuan (atau duplikat di file ini) akan dilewati.",
 		"",
@@ -436,8 +437,8 @@ func (h *ImportHandler) ImportApplicants(c *gin.Context) {
 	*/
 	insertSQL := `INSERT INTO applicants
 		(registration_period_id, program_study_id, name, nim, class, whatsapp, birth_date,
-		 division_1_id, division_2_id, selection_status, created_at, updated_at)
-	 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::selection_status,$11,$11)
+		 division_1_id, division_2_id, accepted_division_id, selection_status, created_at, updated_at)
+	 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11::selection_status,$12,$12)
 	 ON CONFLICT (registration_period_id, nim) DO NOTHING`
 
 	tx, err := h.DB.Begin(c.Request.Context())
@@ -542,6 +543,12 @@ func (h *ImportHandler) ImportApplicants(c *gin.Context) {
 			}
 		}
 
+		// Baris berstatus ACCEPTED otomatis diterima di divisi pilihannya yang pertama (Divisi 1).
+		var acceptedDiv any
+		if status == "ACCEPTED" {
+			acceptedDiv = div1ID
+		}
+
 		regAt := time.Now()
 		if regRaw != "" {
 			if t, ok := parseImportDate(regRaw); ok {
@@ -565,7 +572,7 @@ func (h *ImportHandler) ImportApplicants(c *gin.Context) {
 		}
 		seenNIM[nim] = true
 
-		tag, err := tx.Exec(c.Request.Context(), insertSQL, periodID, prodiID, name, nim, class, whatsapp, birth, div1ID, div2, status, regAt)
+		tag, err := tx.Exec(c.Request.Context(), insertSQL, periodID, prodiID, name, nim, class, whatsapp, birth, div1ID, div2, acceptedDiv, status, regAt)
 		if err != nil {
 			_ = tx.Rollback(c.Request.Context())
 			respondError(c, http.StatusUnprocessableEntity,
