@@ -52,11 +52,12 @@ Di Dokploy:
 
 - Deploy
 
-Dua hal yang wajib dan sudah diatur di `docker-compose.prod.yml`:
+Dua hal yang perlu diperhatikan:
 
-1. Service `frontend` dan `backend` harus tersambung ke network `dokploy-network`
-   (network milik Traefik). Compose ini sudah menyambungkannya; kalau network itu
-   tidak ada di server, domain akan selalu dibalas **404**.
+1. Service `frontend` dan `backend` harus bisa dijangkau Traefik lewat network
+   `dokploy-network`. Dokploy menyambungkannya otomatis saat deploy, jadi tidak
+   perlu ditulis di compose. Kalau domain dibalas **404**, lihat bagian
+   troubleshooting di bawah.
 2. Jangan pakai `container_name` di compose yang dijalankan Dokploy. Dokploy
    melarangnya karena mengganggu log, metrics, dan fitur lain (compose produksi
    sudah bersih; `container_name` hanya ada di `docker-compose.prod.local.yml`
@@ -175,7 +176,8 @@ container, dan `404 page not found` adalah balasan Traefik ketika tidak ada
 router yang cocok. Penyebab yang harus dicek (urut):
 
 1. **Service tidak tersambung ke `dokploy-network`.** Traefik hanya bisa
-   menjangkau container di network itu. Cek:
+   menjangkau container di network itu. Dokploy menyambungkannya otomatis, tapi
+   ini tetap penyebab 404 paling sering, jadi layak dipastikan:
    ```bash
    docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}} {{end}}' <container-frontend>
    # harus memuat dokploy-network

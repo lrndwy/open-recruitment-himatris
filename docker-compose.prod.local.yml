@@ -1,11 +1,6 @@
 # Override agar docker-compose.prod.yml bisa dijalankan di lokal (Dokploy TIDAK dipakai).
 #
-# Compose produksi memakai network external `dokploy-network` (punya Traefik di server).
-# Di lokal, buat network itu sekali saja:
-#
-#   docker network create dokploy-network
-#
-# Lalu jalankan:
+# Jalankan:
 #
 #   DATABASE_PASSWORD=postgres JWT_SECRET=local-dev-secret-please-change-32chars \
 #   NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1 \
