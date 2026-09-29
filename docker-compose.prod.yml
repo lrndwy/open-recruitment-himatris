@@ -103,7 +103,11 @@ services:
     networks:
       - internal
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3000/"]
+      # Pakai 127.0.0.1, bukan localhost: di container ini `localhost` diresolusi
+      # ke ::1 (IPv6) sementara server Next hanya listen di 0.0.0.0 (IPv4),
+      # sehingga healthcheck dengan localhost selalu "connection refused"
+      # dan container terus dianggap unhealthy.
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/"]
       interval: 30s
       timeout: 10s
       retries: 3
