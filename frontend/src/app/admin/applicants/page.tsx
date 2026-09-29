@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,6 +51,10 @@ const STATUS_LABEL: Record<SelectionStatus, string> = {
 export default function ApplicantsPage() {
   const [data, setData] = useState<Paginated<ApplicantListItem> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  // Pilihan hapus massal. Direset setiap kali daftar dimuat ulang (pindah
+  // halaman atau ganti filter) supaya tidak ada baris terpilih yang tersembunyi.
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [isDeletingBulk, setIsDeletingBulk] = useState(false);
 
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -99,6 +104,7 @@ export default function ApplicantsPage() {
 
   const load = useCallback(async () => {
     setIsLoading(true);
+    setSelected(new Set());
     try {
       const params = new URLSearchParams({ page: String(page), limit: "20" });
       if (search) params.set("search", search);
@@ -151,6 +157,45 @@ export default function ApplicantsPage() {
     }
   }
 
+  function toggleSelected(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function toggleAllOnPage(checked: boolean) {
+    setSelected(checked ? new Set((data?.items ?? []).map((a) => a.id)) : new Set());
+  }
+
+  async function handleBulkDelete() {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    if (
+      !confirm(
+        `Hapus ${ids.length} pendaftar terpilih? Berkas pendaftarannya juga terhapus dan tidak bisa dikembalikan.`,
+      )
+    ) {
+      return;
+    }
+    setIsDeletingBulk(true);
+    try {
+      const res = await api.post<{ deleted: number }>("/admin/applicants/bulk-delete", { ids });
+      toast.success(`${res.data?.deleted ?? 0} pendaftar dihapus.`);
+      setSelected(new Set());
+      load();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Gagal menghapus pendaftar.");
+    } finally {
+      setIsDeletingBulk(false);
+    }
+  }
+
   async function handleDownloadTemplate() {
     try {
       const res = await fetch(
@@ -196,6 +241,15 @@ export default function ApplicantsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Pendaftar</h1>
         <div className="flex gap-2">
+          {selected.size > 0 && (
+            <Button
+              variant="destructive"
+              disabled={isDeletingBulk}
+              onClick={handleBulkDelete}
+            >
+              {isDeletingBulk ? "Menghapus..." : `Hapus ${selected.size} terpilih`}
+            </Button>
+          )}
           <Button
             variant="outline"
             onClick={() => {
@@ -280,6 +334,19 @@ export default function ApplicantsPage() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-10">
+                <Checkbox
+                  aria-label="Pilih semua pendaftar di halaman ini"
+                  checked={
+                    (data?.items.length ?? 0) > 0 && selected.size === data?.items.length
+                      ? true
+                      : selected.size > 0
+                        ? "indeterminate"
+                        : false
+                  }
+                  onCheckedChange={(value) => toggleAllOnPage(value === true)}
+                />
+              </TableHead>
               <TableHead>Nama</TableHead>
               <TableHead>NIM</TableHead>
               <TableHead>Prodi</TableHead>
@@ -292,19 +359,26 @@ export default function ApplicantsPage() {
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   Memuat...
                 </TableCell>
               </TableRow>
             ) : !data?.items.length ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   Tidak ada data.
                 </TableCell>
               </TableRow>
             ) : (
               data.items.map((a) => (
-                <TableRow key={a.id}>
+                <TableRow key={a.id} data-state={selected.has(a.id) ? "selected" : undefined}>
+                  <TableCell>
+                    <Checkbox
+                      aria-label={`Pilih ${a.name}`}
+                      checked={selected.has(a.id)}
+                      onCheckedChange={() => toggleSelected(a.id)}
+                    />
+                  </TableCell>
                   <TableCell className="font-medium">{a.name}</TableCell>
                   <TableCell>{a.nim}</TableCell>
                   <TableCell>{a.program_study.name}</TableCell>

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -404,40 +406,35 @@ func (h *ApplicantHandler) GetPortfolio(c *gin.Context) {
 	c.File(absPath)
 }
 
-// DELETE /admin/applicants/:id
-func (h *ApplicantHandler) Delete(c *gin.Context) {
-	id := c.Param("id")
+// maxBulkDelete membatasi jumlah pendaftar yang dihapus sekaligus supaya satu
+// permintaan tidak mengunci tabel terlalu lama.
+const maxBulkDelete = 500
 
+// hapusPendaftar menghapus baris pendaftar beserta berkas fisiknya.
+// Mengembalikan jumlah baris yang benar-benar terhapus.
+func (h *ApplicantHandler) hapusPendaftar(ctx context.Context, ids []string) (int64, error) {
 	// Kumpulkan path file fisik sebelum baris dihapus (record files ikut terhapus via CASCADE)
-	rows, err := h.DB.Query(c, `SELECT path FROM files WHERE applicant_id = $1`, id)
+	rows, err := h.DB.Query(ctx, `SELECT path FROM files WHERE applicant_id = ANY($1::uuid[])`, ids)
 	if err != nil {
-		respondError(c, http.StatusInternalServerError, "Terjadi kesalahan.", "INTERNAL_SERVER_ERROR")
-		return
+		return 0, err
 	}
 	var filePaths []string
 	for rows.Next() {
 		var p string
 		if err := rows.Scan(&p); err != nil {
 			rows.Close()
-			respondError(c, http.StatusInternalServerError, "Terjadi kesalahan.", "INTERNAL_SERVER_ERROR")
-			return
+			return 0, err
 		}
 		filePaths = append(filePaths, p)
 	}
 	rows.Close()
 	if err := rows.Err(); err != nil {
-		respondError(c, http.StatusInternalServerError, "Terjadi kesalahan.", "INTERNAL_SERVER_ERROR")
-		return
+		return 0, err
 	}
 
-	tag, err := h.DB.Exec(c, `DELETE FROM applicants WHERE id = $1`, id)
+	tag, err := h.DB.Exec(ctx, `DELETE FROM applicants WHERE id = ANY($1::uuid[])`, ids)
 	if err != nil {
-		respondError(c, http.StatusInternalServerError, "Terjadi kesalahan.", "INTERNAL_SERVER_ERROR")
-		return
-	}
-	if tag.RowsAffected() == 0 {
-		respondError(c, http.StatusNotFound, "Pendaftar tidak ditemukan.", "NOT_FOUND")
-		return
+		return 0, err
 	}
 
 	// Hapus file fisik dari storage (best-effort; record DB sudah bersih via cascade)
@@ -445,7 +442,59 @@ func (h *ApplicantHandler) Delete(c *gin.Context) {
 		_ = os.Remove(filepath.Join(h.Cfg.StoragePath, p))
 	}
 
+	return tag.RowsAffected(), nil
+}
+
+// DELETE /admin/applicants/:id
+// DELETE /admin/applicants/:id
+func (h *ApplicantHandler) Delete(c *gin.Context) {
+	deleted, err := h.hapusPendaftar(c.Request.Context(), []string{c.Param("id")})
+	if err != nil {
+		respondError(c, http.StatusInternalServerError, "Terjadi kesalahan.", "INTERNAL_SERVER_ERROR")
+		return
+	}
+	if deleted == 0 {
+		respondError(c, http.StatusNotFound, "Pendaftar tidak ditemukan.", "NOT_FOUND")
+		return
+	}
+
 	respondSuccess(c, http.StatusOK, "Pendaftar berhasil dihapus.", nil)
+}
+
+// POST /admin/applicants/bulk-delete
+func (h *ApplicantHandler) BulkDelete(c *gin.Context) {
+	var req struct {
+		IDs []string `json:"ids" binding:"required,min=1"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		respondError(c, http.StatusUnprocessableEntity,
+			"Pilih minimal satu pendaftar yang akan dihapus.", "VALIDATION_ERROR")
+		return
+	}
+	if len(req.IDs) > maxBulkDelete {
+		respondError(c, http.StatusUnprocessableEntity,
+			fmt.Sprintf("Maksimal %d pendaftar sekali hapus.", maxBulkDelete), "VALIDATION_ERROR")
+		return
+	}
+	for _, id := range req.IDs {
+		if _, err := uuid.Parse(id); err != nil {
+			respondError(c, http.StatusUnprocessableEntity, "Daftar pendaftar tidak valid.", "VALIDATION_ERROR")
+			return
+		}
+	}
+
+	deleted, err := h.hapusPendaftar(c.Request.Context(), req.IDs)
+	if err != nil {
+		respondError(c, http.StatusInternalServerError, "Terjadi kesalahan.", "INTERNAL_SERVER_ERROR")
+		return
+	}
+	if deleted == 0 {
+		respondError(c, http.StatusNotFound, "Pendaftar tidak ditemukan.", "NOT_FOUND")
+		return
+	}
+
+	respondSuccess(c, http.StatusOK,
+		fmt.Sprintf("%d pendaftar berhasil dihapus.", deleted), gin.H{"deleted": deleted})
 }
 
 // GET /admin/applicants/:id/parental-consent

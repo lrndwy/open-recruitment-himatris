@@ -227,7 +227,19 @@ Public endpoint tidak membutuhkan authentication.
 
 ## GET `/public/registration`
 
-Mengambil informasi periode Open Recruitment aktif.
+Mengambil informasi periode Open Recruitment.
+
+Urutan pemilihan periode:
+
+```text
+1. Periode yang sedang dibuka (now() di antara start_at dan end_at)
+2. Kalau tidak ada, periode terakhir (start_at terbaru) apa pun statusnya
+3. Kalau belum ada periode sama sekali, data bernilai null
+```
+
+Poin 2 penting untuk halaman depan: saat pendaftaran sudah ditutup, pengunjung
+tetap melihat periode terakhir beserta tanggalnya dan status `CLOSED`, bukan
+halaman kosong.
 
 ### Response
 
@@ -240,7 +252,7 @@ Mengambil informasi periode Open Recruitment aktif.
     "name": "OPREC HIMATRIS 2026",
     "start_at": "2026-09-15T01:00:00Z",
     "end_at": "2026-09-30T16:59:00Z",
-    "status": "OPEN"
+    "status": "CLOSED"
   }
 }
 ```
@@ -248,9 +260,9 @@ Mengambil informasi periode Open Recruitment aktif.
 Status:
 
 ```text
-UPCOMING
-OPEN
-CLOSED
+UPCOMING  pendaftaran belum dibuka
+OPEN      pendaftaran sedang dibuka
+CLOSED    pendaftaran sudah ditutup
 ```
 
 ---
@@ -823,6 +835,45 @@ Mengambil detail pendaftar.
     "updated_at": "2026-09-15T08:30:00Z"
   }
 }
+```
+
+---
+
+# 24.1. Bulk Delete Applicants
+
+## POST `/admin/applicants/bulk-delete`
+
+Menghapus beberapa pendaftar sekaligus beserta berkas pendaftarannya.
+Maksimal 500 pendaftar per permintaan.
+
+### Request
+
+```json
+{
+  "ids": ["550e8400-e29b-41d4-a716-446655440000", "7c9e6679-7425-40de-944b-e07fc1f90ae7"]
+}
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "message": "2 pendaftar berhasil dihapus.",
+  "data": {
+    "deleted": 2
+  }
+}
+```
+
+Berkas fisik (CV, poster, portofolio, surat izin) ikut dihapus dari storage,
+dan barisnya di tabel `files` terhapus otomatis lewat cascade.
+
+### Errors
+
+```text
+422 VALIDATION_ERROR   daftar kosong, id bukan uuid, atau lebih dari 500 id
+404 NOT_FOUND          tidak ada id yang cocok
 ```
 
 ---
@@ -1511,6 +1562,8 @@ GET    /admin/dashboard
 GET    /admin/applicants
 GET    /admin/applicants/:id
 PATCH  /admin/applicants/:id/status
+DELETE /admin/applicants/:id
+POST   /admin/applicants/bulk-delete
 GET    /admin/applicants/:id/cv
 ```
 
@@ -1762,6 +1815,8 @@ DELETE /admin/recruitment-events/:id
     │   ├── GET /
     │   ├── GET /:id
     │   ├── PATCH /:id/status
+    │   ├── DELETE /:id
+    │   ├── POST /bulk-delete
     │   └── GET /:id/cv
     │
     ├── /divisions

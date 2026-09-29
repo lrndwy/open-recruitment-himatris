@@ -113,18 +113,24 @@ export function LandingPage() {
           .from("[data-hero-cta]", { y: 12, autoAlpha: 0 }, "-=0.35")
           .from("[data-hero-stat]", { y: 16, autoAlpha: 0, stagger: 0.08 }, "-=0.3");
 
-        // Foto hero bergerak pelan saat halaman di-scroll.
-        gsap.to("[data-hero-photo]", {
-          yPercent: 10,
-          scale: 1.08,
-          ease: "none",
-          scrollTrigger: {
-            trigger: "[data-hero-section]",
-            start: "top top",
-            end: "bottom top",
-            scrub: true,
+        // Foto hero bergerak pelan saat halaman di-scroll. Sengaja hanya
+        // translate (tanpa scale) dan hanya di layar >=768px: menggerakkan
+        // lapisan sebesar ini di HP bikin scroll terasa patah-patah.
+        mm.add(
+          "(min-width: 768px) and (prefers-reduced-motion: no-preference)",
+          () => {
+            gsap.to("[data-hero-photo]", {
+              yPercent: 7,
+              ease: "none",
+              scrollTrigger: {
+                trigger: "[data-hero-section]",
+                start: "top top",
+                end: "bottom top",
+                scrub: true,
+              },
+            });
           },
-        });
+        );
 
         gsap.utils.toArray<HTMLElement>("[data-reveal]").forEach((el) => {
           gsap.from(el, {
@@ -203,14 +209,14 @@ export function LandingPage() {
             width={1920}
             height={1280}
             fetchPriority="high"
-            className="absolute inset-0 -z-10 size-full object-cover"
+            className="absolute inset-x-0 -top-[8%] -z-10 h-[116%] w-full object-cover will-change-transform"
           />
           <div className="absolute inset-0 -z-10 bg-gradient-to-t from-zinc-950 via-zinc-950/85 to-zinc-950/35" />
 
           <div className="mx-auto flex min-h-[100dvh] w-full max-w-6xl flex-col justify-end px-5 pb-14 pt-24 sm:px-6 sm:pb-20">
             <p
               data-hero-pill
-              className="flex w-fit items-center gap-2.5 rounded-full border border-white/15 bg-zinc-950/70 px-3.5 py-1.5 text-sm text-zinc-100 backdrop-blur-md"
+              className="flex w-fit items-center gap-2.5 rounded-full border border-white/15 bg-zinc-950/70 px-3.5 py-1.5 text-sm text-zinc-100"
             >
               <span
                 className={cn(
@@ -238,26 +244,23 @@ export function LandingPage() {
             </p>
 
             <div data-hero-cta className="mt-8 flex flex-wrap items-center gap-3">
-              <Button
-                size="lg"
-                asChild={isOpen}
-                disabled={isLoading || !isOpen}
-                className="h-12 cursor-pointer rounded-full bg-white px-7 text-base font-medium text-zinc-950 transition-transform hover:bg-zinc-200 active:scale-[0.98]"
-              >
-                {isOpen ? (
+              {isOpen && (
+                <Button
+                  size="lg"
+                  asChild
+                  className="h-12 cursor-pointer rounded-full bg-white px-7 text-base font-medium text-zinc-950 transition-transform hover:bg-zinc-200 active:scale-[0.98]"
+                >
                   <Link href="/register">
                     Daftar Sekarang
                     <ArrowRight className="size-4" aria-hidden />
                   </Link>
-                ) : (
-                  <span>{statusLabel}</span>
-                )}
-              </Button>
+                </Button>
+              )}
               <Button
                 size="lg"
                 variant="ghost"
                 asChild
-                className="h-12 cursor-pointer rounded-full border border-white/20 px-7 text-base font-medium text-zinc-100 backdrop-blur-sm hover:border-white/40 hover:bg-white/10"
+                className="h-12 cursor-pointer rounded-full border border-white/20 px-7 text-base font-medium text-zinc-100 hover:border-white/40 hover:bg-white/10"
               >
                 <Link href="/result">Cek Hasil</Link>
               </Button>
@@ -447,21 +450,27 @@ export function LandingPage() {
               </p>
             </div>
 
-            <Button
-              size="lg"
-              asChild={isOpen}
-              disabled={isLoading || !isOpen}
-              className="h-12 w-fit cursor-pointer rounded-full bg-white px-7 text-base font-medium text-zinc-950 transition-transform hover:bg-zinc-200 active:scale-[0.98]"
-            >
-              {isOpen ? (
+            {isOpen ? (
+              <Button
+                size="lg"
+                asChild
+                className="h-12 w-fit cursor-pointer rounded-full bg-white px-7 text-base font-medium text-zinc-950 transition-transform hover:bg-zinc-200 active:scale-[0.98]"
+              >
                 <Link href="/register">
                   Daftar Sekarang
                   <ArrowRight className="size-4" aria-hidden />
                 </Link>
-              ) : (
-                <span>{statusLabel}</span>
-              )}
-            </Button>
+              </Button>
+            ) : (
+              <Button
+                size="lg"
+                variant="outline"
+                asChild
+                className="h-12 w-fit cursor-pointer rounded-full border-white/20 bg-transparent text-base font-medium text-zinc-100 hover:border-white/40 hover:bg-white/10"
+              >
+                <Link href="/result">Cek Hasil</Link>
+              </Button>
+            )}
           </div>
         </section>
       </main>

@@ -93,6 +93,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, c *cache.Cache) *gin.Engine {
 	admin.GET("/applicants", applicantHandler.List)
 	admin.GET("/applicants/:id", applicantHandler.Get)
 	admin.DELETE("/applicants/:id", applicantHandler.Delete)
+	admin.POST("/applicants/bulk-delete", applicantHandler.BulkDelete)
 	admin.PATCH("/applicants/:id/status", applicantHandler.UpdateStatus)
 	admin.GET("/applicants/:id/cv", applicantHandler.GetCV)
 	admin.GET("/applicants/:id/portfolio", applicantHandler.GetPortfolio)

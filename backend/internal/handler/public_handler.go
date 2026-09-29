@@ -28,10 +28,13 @@ type PublicHandler struct {
 func (h *PublicHandler) GetRegistration(c *gin.Context) {
 	var id, name string
 	var startAt, endAt time.Time
+	// Periode yang sedang dibuka selalu diutamakan. Kalau tidak ada, pakai periode
+	// terakhir yang dibuat supaya halaman depan tetap bisa menampilkan status
+	// "sudah ditutup" beserta tanggalnya, bukan kosong.
 	err := h.DB.QueryRow(c,
 		`SELECT id, name, start_at, end_at FROM registration_periods
-		 WHERE now() >= start_at AND now() <= end_at
-		 ORDER BY start_at DESC LIMIT 1`,
+		 ORDER BY (now() >= start_at AND now() <= end_at) DESC, start_at DESC
+		 LIMIT 1`,
 	).Scan(&id, &name, &startAt, &endAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		respondSuccess(c, http.StatusOK, "Registration status berhasil diambil.", nil)
@@ -41,12 +44,22 @@ func (h *PublicHandler) GetRegistration(c *gin.Context) {
 		respondError(c, http.StatusInternalServerError, "Terjadi kesalahan.", "INTERNAL_SERVER_ERROR")
 		return
 	}
+
+	now := time.Now()
+	status := "CLOSED"
+	switch {
+	case now.Before(startAt):
+		status = "UPCOMING"
+	case !now.After(endAt):
+		status = "OPEN"
+	}
+
 	respondSuccess(c, http.StatusOK, "Registration status berhasil diambil.", gin.H{
 		"id":       id,
 		"name":     name,
 		"start_at": startAt.Format(time.RFC3339),
 		"end_at":   endAt.Format(time.RFC3339),
-		"status":   "OPEN",
+		"status":   status,
 	})
 }
 
