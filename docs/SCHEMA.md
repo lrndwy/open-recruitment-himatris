@@ -1156,7 +1156,8 @@ bcrypt
 
 ## CV
 
-Path file tidak boleh dapat ditebak secara mudah.
+Path file tidak boleh dapat ditebak secara mudah, dan berkasnya tidak disajikan
+publik: unduhan hanya lewat endpoint admin ber-token.
 
 Gunakan UUID:
 

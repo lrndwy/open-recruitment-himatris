@@ -106,7 +106,7 @@ Ringkasan hal yang sudah dipasang supaya situs tetap stabil saat ramai:
 | Bagian | Yang dilakukan |
 |---|---|
 | Konten publik | Endpoint `GET /public/registration`, `/settings`, `/divisions`, `/program-studies` di-cache di Redis 30 detik dan langsung di-invalidate saat admin mengubah data, jadi halaman depan tidak selalu menekan PostgreSQL |
-| Pembatas permintaan | `/public/result` 120 permintaan/menit per IP, `POST /public/applications` 20/menit per IP. Berlaku per IP asli (`X-Forwarded-For` hanya dipercaya dari jaringan internal), balasannya `429` |
+| Pembatas permintaan | `/public/result` 120 permintaan/menit per IP, `POST /public/applications` 20/menit per IP, `POST /auth/login` 10/menit per IP. Berlaku per IP asli (`X-Forwarded-For` hanya dipercaya dari jaringan internal), balasannya `429` |
 | Redis | Service `redis` tanpa persistensi, `maxmemory 256mb`, `allkeys-lru`. Redis **opsional**: kalau mati, cache dan pembatas permintaan otomatis dilewati dan situs tetap melayani dari database |
 | Pool database | `DB_MAX_CONNS` (default 25) + koneksi idle dipangkas otomatis, aman di bawah `max_connections` PostgreSQL (default 100) |
 | Index database | Migrasi `018_perf_indexes.sql`: index FK `accepted_division_id`, index GIN untuk pencarian NIM (`ILIKE`), dan index gabungan status/periode + `created_at` untuk daftar pendaftar |
@@ -158,10 +158,24 @@ Health endpoints:
 - Backend: `https://your-domain.com/api/v1/health`
 - Frontend: `https://your-domain.com`
 
+## Keamanan yang Sudah Terpasang
+
+| Bagian | Yang dilakukan |
+|---|---|
+| Akun admin | Tidak ada pendaftaran akun lewat API publik; akun dibuat dari panel **Kelola Admin** (butuh token) atau seed migrasi |
+| Token | JWT HMAC-SHA256; status admin diperiksa ulang ke database tiap request, jadi menonaktifkan/menghapus admin langsung mencabut aksesnya |
+| Rahasia | `JWT_SECRET` di bawah 32 karakter (atau masih `change-me-in-production`) membuat server menolak start saat `ENV=production` |
+| Berkas pendaftar | CV, poster, portofolio, dan surat persetujuan **tidak** disajikan publik. Hanya `storage/divisions/*` dan `storage/landing/*` yang bisa diakses lewat URL; berkas pendaftar lewat endpoint admin ber-token |
+| Unggahan | Gambar divalidasi ekstensi + didecode/di-encode ulang; ukuran body satu request dibatasi 30 MB supaya tidak mengisi disk |
+| Header respons | `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`, HSTS (backend saat produksi), plus CSP di frontend |
+| Ekspor Excel | Teks dari pendaftar ditulis sebagai string (bukan rumus) supaya nama seperti `=...` tidak dieksekusi Excel; kolom berkas menaut ke halaman detail admin |
+
 ## Security Checklist
 
 - [ ] JWT_SECRET minimal 32 karakter random
 - [ ] DATABASE_PASSWORD kuat (min 24 karakter)
+- [ ] Password admin seed (`admin123`) sudah diganti — server mencatat `PERINGATAN KEAMANAN` di log selama masih ada
+- [ ] Tidak ada akun admin yang tidak dikenal di menu **Kelola Admin**
 - [ ] Domain configured di Dokploy dengan auto SSL
 - [ ] Dokploy firewall active
 - [ ] Regular backup database & CV storage

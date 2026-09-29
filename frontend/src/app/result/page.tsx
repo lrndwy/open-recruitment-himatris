@@ -162,7 +162,7 @@ export default function ResultPage() {
                   required
                   inputMode="numeric"
                   autoComplete="off"
-                  placeholder="Contoh: 260209004"
+                  placeholder="Contoh: 260xxxxxx"
                   value={nim}
                   onChange={(e) => setNim(e.target.value)}
                   className="h-12 rounded-full border-white/15 bg-zinc-900 px-5 text-base text-zinc-100 placeholder:text-zinc-400 focus-visible:border-white/30"

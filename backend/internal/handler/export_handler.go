@@ -44,19 +44,19 @@ func (h *ExportHandler) ExportApplicants(c *gin.Context) {
 		addFilter("a.selection_status", v, "::selection_status")
 	}
 
-	// Satu baris per file (CV/POSTER/PORTFOLIO/PARENTAL_CONSENT) via subquery; agregasi jadi satu sel per jenis
-	// URL file: baseURL + /api/v1/storage/ + path relatif file (disimpan di kolom path)
-	args = append(args, "")
-	baseParam := fmt.Sprintf("$%d", len(args))
-	query := `SELECT a.name, a.nim, a.class, COALESCE(a.whatsapp, ''), COALESCE(TO_CHAR(a.birth_date, 'DD/MM/YYYY'), ''), ps.name, d1.name,
+	// Satu baris per file (CV/POSTER/PORTFOLIO/PARENTAL_CONSENT) via subquery; agregasi jadi satu sel per jenis.
+	// Yang diambil hanya path relatifnya, dan itu pun cuma sebagai penanda
+	// berkasnya ada: tautan di sheet diarahkan ke halaman detail pendaftar di
+	// panel admin, karena berkas pendaftar tidak lagi disajikan publik.
+	query := `SELECT a.id, a.name, a.nim, a.class, COALESCE(a.whatsapp, ''), COALESCE(TO_CHAR(a.birth_date, 'DD/MM/YYYY'), ''), ps.name, d1.name,
 		COALESCE(d2.name, ''),
-		COALESCE((SELECT string_agg(` + baseParam + ` || '/api/v1/storage/' || f.path, ', ') FROM files f
+		COALESCE((SELECT string_agg(f.path, ', ') FROM files f
 			JOIN applicants a2 ON a2.id = f.applicant_id WHERE a2.id = a.id AND f.file_type = 'CV'), ''),
-		COALESCE((SELECT string_agg(` + baseParam + ` || '/api/v1/storage/' || f.path, ', ') FROM files f
+		COALESCE((SELECT string_agg(f.path, ', ') FROM files f
 			JOIN applicants a2 ON a2.id = f.applicant_id WHERE a2.id = a.id AND f.file_type = 'POSTER'), ''),
-		COALESCE((SELECT string_agg(` + baseParam + ` || '/api/v1/storage/' || f.path, ', ') FROM files f
+		COALESCE((SELECT string_agg(f.path, ', ') FROM files f
 			JOIN applicants a2 ON a2.id = f.applicant_id WHERE a2.id = a.id AND f.file_type = 'PORTFOLIO'), ''),
-		COALESCE((SELECT string_agg(` + baseParam + ` || '/api/v1/storage/' || f.path, ', ') FROM files f
+		COALESCE((SELECT string_agg(f.path, ', ') FROM files f
 			JOIN applicants a2 ON a2.id = f.applicant_id WHERE a2.id = a.id AND f.file_type = 'PARENTAL_CONSENT'), ''),
 		a.selection_status::text, a.created_at
 		FROM applicants a
@@ -66,12 +66,6 @@ func (h *ExportHandler) ExportApplicants(c *gin.Context) {
 		WHERE ` + strings.Join(where, " AND ") +
 		` ORDER BY a.created_at`
 
-	scheme := "http"
-	if c.Request.TLS != nil {
-		scheme = "https"
-	}
-	args[len(args)-1] = scheme + "://" + c.Request.Host
-
 	rows, err := h.DB.Query(c, query, args...)
 	if err != nil {
 		respondError(c, http.StatusInternalServerError, "Terjadi kesalahan.", "INTERNAL_SERVER_ERROR")
@@ -80,14 +74,14 @@ func (h *ExportHandler) ExportApplicants(c *gin.Context) {
 	defer rows.Close()
 
 	type row struct {
-		name, nim, class, whatsapp, birth, prodi, div1, div2, cv, poster, portfolio, parentalConsent, status string
-		createdAt                                                                                            time.Time
+		id, name, nim, class, whatsapp, birth, prodi, div1, div2, cv, poster, portfolio, parentalConsent, status string
+		createdAt                                                                                                time.Time
 	}
 	var data []row
 	total, pending, accepted, rejected := 0, 0, 0, 0
 	for rows.Next() {
 		var r row
-		if err := rows.Scan(&r.name, &r.nim, &r.class, &r.whatsapp, &r.birth, &r.prodi, &r.div1, &r.div2,
+		if err := rows.Scan(&r.id, &r.name, &r.nim, &r.class, &r.whatsapp, &r.birth, &r.prodi, &r.div1, &r.div2,
 			&r.cv, &r.poster, &r.portfolio, &r.parentalConsent, &r.status, &r.createdAt); err != nil {
 			respondError(c, http.StatusInternalServerError, "Terjadi kesalahan.", "INTERNAL_SERVER_ERROR")
 			return
@@ -136,18 +130,34 @@ func (h *ExportHandler) ExportApplicants(c *gin.Context) {
 	}
 	statusLabel := map[string]string{"PENDING": "Menunggu", "ACCEPTED": "Diterima", "REJECTED": "Ditolak"}
 	linkStyle, _ := f.NewStyle(&excelize.Style{Font: &excelize.Font{Color: "2563EB", Underline: "single"}})
+	cellName := func(col, row int) string {
+		name, _ := excelize.CoordinatesToCellName(col, row)
+		return name
+	}
 	for i, r := range data {
 		rowNo := i + 2
-		vals := []any{i + 1, r.name, r.nim, r.class, r.whatsapp, r.birth, r.prodi, r.div1, r.div2,
-			r.cv, r.poster, r.portfolio, r.parentalConsent, statusLabel[r.status], r.createdAt.Format("02/01/2006 15:04")}
-		for j, v := range vals {
-			cell, _ := excelize.CoordinatesToCellName(j+1, rowNo)
-			f.SetCellValue(sheet, cell, v)
-			// Kolom CV(J), Poster(K), Portofolio(L), Surat Persetujuan(M): hyperlink bila ada
-			if j >= 9 && j <= 12 && v != "" {
-				f.SetCellFormula(sheet, cell, fmt.Sprintf("HYPERLINK(%q, %q)", v, "Lihat File"))
-				f.SetCellStyle(sheet, cell, cell, linkStyle)
+		f.SetCellInt(sheet, cellName(1, rowNo), int64(i+1))
+		// Teks dari pendaftar ditulis sebagai string, bukan lewat SetCellValue:
+		// excelize memperlakukan string yang diawali "=" sebagai rumus, sehingga
+		// nama seperti "=1+1" akan dijalankan Excel saat file ekspor dibuka.
+		for j, v := range []string{r.name, r.nim, r.class, r.whatsapp, r.birth, r.prodi, r.div1, r.div2} {
+			f.SetCellStr(sheet, cellName(j+2, rowNo), v)
+		}
+		f.SetCellStr(sheet, cellName(14, rowNo), statusLabel[r.status])
+		f.SetCellStr(sheet, cellName(15, rowNo), r.createdAt.Format("02/01/2006 15:04"))
+
+		// Kolom CV(J), Poster(K), Portofolio(L), Surat Persetujuan(M): tautan ke
+		// halaman detail pendaftar di panel admin. Tautan langsung ke berkas
+		// tidak dipakai lagi karena berkas pendaftar hanya bisa diunduh dengan
+		// token admin, bukan dari URL publik.
+		detailURL := h.Cfg.FrontendURL + "/admin/applicants/" + r.id
+		for j, ada := range []string{r.cv, r.poster, r.portfolio, r.parentalConsent} {
+			if ada == "" {
+				continue
 			}
+			cell := cellName(j+10, rowNo)
+			f.SetCellFormula(sheet, cell, fmt.Sprintf("HYPERLINK(%q, %q)", detailURL, "Lihat File"))
+			f.SetCellStyle(sheet, cell, cell, linkStyle)
 		}
 	}
 	f.AddTable(sheet, &excelize.Table{Range: fmt.Sprintf("A1:O%d", len(data)+1), Name: "DataPendaftar"})
@@ -173,7 +183,7 @@ func (h *ExportHandler) ExportApplicants(c *gin.Context) {
 		prodiCount[r.prodi]++
 	}
 	for i, p := range prodiOrder {
-		f.SetCellValue(sheet, fmt.Sprintf("A%d", i+2), p)
+		f.SetCellStr(sheet, fmt.Sprintf("A%d", i+2), p)
 		f.SetCellValue(sheet, fmt.Sprintf("B%d", i+2), prodiCount[p])
 	}
 
@@ -195,7 +205,7 @@ func (h *ExportHandler) ExportApplicants(c *gin.Context) {
 		}
 	}
 	for i, d := range divOrder {
-		f.SetCellValue(sheet, fmt.Sprintf("A%d", i+2), d)
+		f.SetCellStr(sheet, fmt.Sprintf("A%d", i+2), d)
 		f.SetCellValue(sheet, fmt.Sprintf("B%d", i+2), divCount[d])
 	}
 

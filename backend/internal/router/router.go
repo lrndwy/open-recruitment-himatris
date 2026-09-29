@@ -1,6 +1,7 @@
 package router
 
 import (
+	"path/filepath"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -23,7 +24,10 @@ const publicCacheTTL = 30 * time.Second
 const (
 	resultLookupLimit = 120
 	applicationLimit  = 20
-	rateLimitWindow   = time.Minute
+	// Login dibatasi lebih ketat: ini pintu masuk panel admin, dan tanpa batas
+	// ini password bisa dicoba berulang kali dari satu IP.
+	loginLimit      = 10
+	rateLimitWindow = time.Minute
 )
 
 func New(cfg *config.Config, pool *pgxpool.Pool, c *cache.Cache) *gin.Engine {
@@ -38,20 +42,27 @@ func New(cfg *config.Config, pool *pgxpool.Pool, c *cache.Cache) *gin.Engine {
 		AllowMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders: []string{"Origin", "Content-Type", "Authorization"},
 	}
+	r.Use(middleware.SecurityHeaders(cfg.Env == "production"), middleware.MaxBody())
 	r.Use(cors.New(corsConfig))
 
 	api := r.Group("/api/v1")
 
-	// File uploads served di bawah /api/v1 agar dirutekan ke backend oleh reverse proxy
+	// Hanya gambar publik (divisi & hero landing) yang disajikan langsung.
+	// Berkas pendaftar (CV, poster, portofolio, surat izin) berada di storage
+	// yang sama, jadi akar storage TIDAK boleh disajikan: itu membuat dokumen
+	// pribadi bisa diunduh siapa pun yang tahu/nebak nama filenya. Berkas
+	// pendaftar hanya lewat endpoint admin yang memakai token.
 	api.Use(middleware.ImmutableCache("/api/v1/storage/divisions/", "/api/v1/storage/landing/"))
-	api.Static("/storage", cfg.StoragePath)
+	api.Static("/storage/divisions", filepath.Join(cfg.StoragePath, "divisions"))
+	api.Static("/storage/landing", filepath.Join(cfg.StoragePath, "landing"))
 
 	healthHandler := &handler.HealthHandler{DB: pool, Cache: c}
 	api.GET("/health", healthHandler.Health)
 
 	authHandler := &handler.AuthHandler{DB: pool, Cfg: cfg}
-	api.POST("/auth/register", authHandler.Register)
-	api.POST("/auth/login", authHandler.Login)
+	// Tidak ada pendaftaran akun admin lewat API publik: akun dibuat dari
+	// panel admin (butuh token) atau lewat seed migrasi.
+	api.POST("/auth/login", middleware.RateLimit(c, "login", loginLimit, rateLimitWindow), authHandler.Login)
 
 	publicHandler := &handler.PublicHandler{DB: pool, Cfg: cfg}
 	mediaHandler := &handler.MediaHandler{DB: pool, Cfg: cfg, Cache: c}
@@ -63,7 +74,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, c *cache.Cache) *gin.Engine {
 	public.POST("/applications", middleware.RateLimit(c, "applications", applicationLimit, rateLimitWindow), publicHandler.CreateApplication)
 	public.GET("/result", middleware.RateLimit(c, "result", resultLookupLimit, rateLimitWindow), publicHandler.GetResult)
 
-	admin := api.Group("/admin", middleware.RequireAuth(cfg.JWTSecret))
+	admin := api.Group("/admin", middleware.RequireAuth(cfg.JWTSecret, pool))
 
 	divisionHandler := &handler.DivisionHandler{DB: pool, Cache: c}
 	admin.GET("/divisions", divisionHandler.List)
@@ -103,7 +114,7 @@ func New(cfg *config.Config, pool *pgxpool.Pool, c *cache.Cache) *gin.Engine {
 	dashboardHandler := &handler.DashboardHandler{DB: pool}
 	admin.GET("/dashboard", dashboardHandler.GetDashboard)
 
-	exportHandler := &handler.ExportHandler{DB: pool}
+	exportHandler := &handler.ExportHandler{DB: pool, Cfg: cfg}
 	admin.GET("/export/applicants", exportHandler.ExportApplicants)
 
 	importHandler := &handler.ImportHandler{DB: pool}

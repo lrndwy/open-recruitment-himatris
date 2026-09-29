@@ -1,11 +1,16 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"strconv"
 
 	"github.com/joho/godotenv"
 )
+
+// minJWTSecretLen: HMAC-SHA256 dengan secret pendek/tebakan bisa di-brute force
+// offline, dan token yang dipalsukan = akses penuh ke panel admin.
+const minJWTSecretLen = 32
 
 type Config struct {
 	Port         string
@@ -45,6 +50,18 @@ func Load() *Config {
 		RedisURL:     getEnv("REDIS_URL", ""),
 		MaxDBConns:   int32(getEnvInt64("DB_MAX_CONNS", 25)),
 	}
+}
+
+// Validate menolak konfigurasi yang berbahaya saat produksi. Di development
+// nilai default tetap jalan supaya `go run` tidak menghalangi.
+func (c *Config) Validate() error {
+	if c.Env != "production" {
+		return nil
+	}
+	if c.JWTSecret == "" || c.JWTSecret == "change-me-in-production" || len(c.JWTSecret) < minJWTSecretLen {
+		return errors.New("JWT_SECRET wajib diisi acak minimal 32 karakter di produksi")
+	}
+	return nil
 }
 
 func (c *Config) DatabaseURL() string {

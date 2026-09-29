@@ -170,6 +170,15 @@ Request protected endpoint:
 Authorization: Bearer <access_token>
 ```
 
+Catatan keamanan:
+
+- Tidak ada endpoint pendaftaran akun publik. Akun admin dibuat dari panel admin
+  (`POST /admin/users`, butuh token) atau lewat seed migrasi.
+- Token diperiksa ulang ke database setiap request: akun yang dinonaktifkan
+  (`INACTIVE`) atau dihapus langsung kehilangan akses, tanpa menunggu token
+  kedaluwarsa.
+- `POST /auth/login` dibatasi 10 percobaan/menit per IP (`429` bila lewat).
+
 ---
 
 # 8. Authentication Endpoints
@@ -1235,6 +1244,10 @@ Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
 Content-Disposition: attachment; filename="HIMATRIS_OPREC_2026.xlsx"
 ```
 
+Kolom berkas (CV, Poster, Portofolio, Surat Persetujuan) berisi tautan ke halaman
+detail pendaftar di panel admin, bukan URL berkas langsung — berkas pendaftar
+hanya bisa diunduh dengan token admin.
+
 ---
 
 # 41. Excel Workbook Structure
@@ -2002,8 +2015,23 @@ menyusun URL-nya menjadi `{API_URL}/storage/{path}`.
 ```text
 storage/divisions/<uuid>.<ext>
 storage/landing/<uuid>.<ext>
+storage/cvs/<tahun>/<uuid>.pdf
+storage/posters/<tahun>/<uuid>.<ext>
+storage/portfolios/<tahun>/<uuid>.pdf
+storage/parental_consents/<tahun>/<uuid>.pdf
 ```
 
-File disajikan publik lewat `GET /storage/{path}` (di belakang `/api/v1`).
+Hanya gambar publik yang disajikan langsung lewat HTTP:
+
+```text
+GET /api/v1/storage/divisions/{path}
+GET /api/v1/storage/landing/{path}
+```
+
+Berkas pendaftar (CV, poster, portofolio, surat persetujuan orang tua) **tidak**
+disajikan publik. Berkas itu hanya bisa diunduh lewat endpoint admin
+(`GET /admin/applicants/:id/cv|poster|portfolio|parental-consent`) yang
+memerlukan token admin.
+
 Karena nama filenya UUID, mengganti gambar menghasilkan URL baru sehingga cache
 browser tidak perlu di-bust manual.

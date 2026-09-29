@@ -352,7 +352,7 @@ func (h *ApplicantHandler) GetCV(c *gin.Context) {
 		respondError(c, http.StatusNotFound, "File CV tidak ditemukan.", "NOT_FOUND")
 		return
 	}
-	c.Header("Content-Disposition", `inline; filename="`+originalName+`"`)
+	c.Header("Content-Disposition", contentDisposition("inline", originalName))
 	c.File(absPath)
 }
 
@@ -377,7 +377,7 @@ func (h *ApplicantHandler) GetPoster(c *gin.Context) {
 		respondError(c, http.StatusNotFound, "File poster tidak ditemukan.", "FILE_NOT_FOUND")
 		return
 	}
-	c.Header("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, originalName))
+	c.Header("Content-Disposition", contentDisposition("inline", originalName))
 	c.File(absPath)
 }
 
@@ -402,7 +402,7 @@ func (h *ApplicantHandler) GetPortfolio(c *gin.Context) {
 		respondError(c, http.StatusNotFound, "File portofolio tidak ditemukan.", "FILE_NOT_FOUND")
 		return
 	}
-	c.Header("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, originalName))
+	c.Header("Content-Disposition", contentDisposition("inline", originalName))
 	c.File(absPath)
 }
 
@@ -518,6 +518,6 @@ func (h *ApplicantHandler) GetParentalConsent(c *gin.Context) {
 		respondError(c, http.StatusNotFound, "File surat persetujuan tidak ditemukan.", "FILE_NOT_FOUND")
 		return
 	}
-	c.Header("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, originalName))
+	c.Header("Content-Disposition", contentDisposition("inline", originalName))
 	c.File(absPath)
 }

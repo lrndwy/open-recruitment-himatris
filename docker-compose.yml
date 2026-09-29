@@ -33,7 +33,9 @@ services:
     container_name: himatris-oprec-backend
     environment:
       PORT: "8080"
-      ENV: production
+      # development, bukan production: file ini untuk dev lokal. Kalau
+      # production, `Validate()` menolak JWT_SECRET default di bawah.
+      ENV: development
       DATABASE_HOST: postgres
       DATABASE_PORT: "5432"
       DATABASE_NAME: himatris_oprec
